@@ -1,0 +1,26 @@
+[project]
+name = "gb-source-counting"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "torch",
+    "torchvision",
+    "scikit-learn>=1.8.0",
+    "jupyter>=1.1.1",
+    "ipykernel>=7.2.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[override-dependencies]
+nvidia-cudnn-cu12 = "9.19.0.56"
+nvidia-cusparselt-cu12 = "0.7.1"
+nvidia-nccl-cu12 = "2.28.9"
+nvidia-nvshmem-cu12 = "3.4.5"
