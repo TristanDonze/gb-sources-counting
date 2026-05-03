@@ -68,7 +68,7 @@ def train(load_checkpoint_path=None):
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             best_val_f1_epoch = epoch + 1
-            save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_accs, val_recall, val_f1s, best_val_f1, best_val_f1_epoch, epoch, f"best_checkpoint_epoch_{best_val_f1_epoch}.pth")
+            save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_accs, val_recall, val_f1s, best_val_f1, best_val_f1_epoch, epoch, f"models/best_checkpoint_epoch_{best_val_f1_epoch}.pth")
         else:
-            save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_accs, val_recall, val_f1s, best_val_f1, best_val_f1_epoch, epoch, f"checkpoint_epoch_{epoch}.pth")
+            save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_accs, val_recall, val_f1s, best_val_f1, best_val_f1_epoch, epoch, f"models/checkpoint_epoch_{epoch}.pth")
     logger.info(f"Training completed. Best Val F1: {best_val_f1:.4f} at epoch {best_val_f1_epoch}")

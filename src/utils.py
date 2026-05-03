@@ -1,5 +1,7 @@
+import os
 import torch
 def save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_accs, val_recall, val_f1s, best_val_f1, best_val_f1_epoch, epoch, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     checkpoint = {
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
