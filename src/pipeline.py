@@ -33,7 +33,7 @@ def train(load_checkpoint_path=None):
     scheduler =  torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=NB_EPOCHS, eta_min=LR_MIN)
 
     train_dataset = GalacticBinariesDataset(train_dataset_path, max_K=10, max_samples=10_000)
-    val_dataset = GalacticBinariesDataset(val_dataset_path, max_K=10, max_samples=1_000)
+    val_dataset = GalacticBinariesDataset(val_dataset_path, max_K=10, max_samples=1_000, deterministic=True, seed=0)
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False)
