@@ -55,13 +55,13 @@ def train(load_checkpoint_path=None):
 
     for epoch in range(start_epoch, NB_EPOCHS):
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, scheduler, device)
-        val_loss, val_acc, val_recall, val_f1 = evaluate(model, val_loader, criterion, device)  
+        val_loss, val_acc, val_recall_score, val_f1 = evaluate(model, val_loader, criterion, device)  
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         val_accs.append(val_acc)
-        val_recall.append(val_recall)
+        val_recall.append(val_recall_score)
         val_f1s.append(val_f1)
-        logger.info(f"Epoch {epoch+1}/{NB_EPOCHS} - Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f} - Val Recall: {val_recall:.4f} - Val F1: {val_f1:.4f}")
+        logger.info(f"Epoch {epoch+1}/{NB_EPOCHS} - Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f} - Val Recall: {val_recall_score:.4f} - Val F1: {val_f1:.4f}")
 
         # Save checkpoint if current epoch has the best validation F1 score
         if val_f1 > best_val_f1:
