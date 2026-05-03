@@ -48,7 +48,8 @@ def train(load_checkpoint_path=None):
     best_val_f1_epoch = 0
 
     if load_checkpoint_path is not None:
-        train_losses, val_losses, val_accs, val_recall, val_f1s, best_val_f1, best_val_f1_epoch, start_epoch = load_checkpoint(model, optimizer, scheduler, load_checkpoint_path)
+        train_losses, val_losses, val_accs, val_recall, val_f1s, best_val_f1, best_val_f1_epoch, last_completed_epoch = load_checkpoint(model, optimizer, scheduler, load_checkpoint_path)
+        start_epoch = last_completed_epoch + 1
         logger.info(f"Loaded checkpoint from {load_checkpoint_path}, starting from epoch {start_epoch+1}")
     else:
         start_epoch = 0
