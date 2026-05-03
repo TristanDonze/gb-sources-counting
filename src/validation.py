@@ -11,8 +11,8 @@ def evaluate(model, dataloader, criterion, device):
     all_labels = []
     with torch.no_grad():
         for batch_idx, (summed_waveforms, target) in enumerate(dataloader):
-            X = torch.tensor(summed_waveforms, dtype=torch.float32).to(device)
-            y = torch.tensor(target, dtype=torch.long).to(device)
+            X = torch.as_tensor(summed_waveforms, dtype=torch.float32, device=device)
+            y = torch.as_tensor(target, dtype=torch.long, device=device)
 
             logits = model(X)
             loss = criterion(logits, y)
