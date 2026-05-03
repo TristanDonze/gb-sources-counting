@@ -41,8 +41,9 @@ class GalacticBinariesDataset(Dataset):
         params = {param: getattr(self, param)[sampled_indices] for param in self.attr_names}
 
         summed_waveforms = waveforms.sum(axis=0)
+        target = k - 1  # CrossEntropyLoss expects class indices in [0, max_K - 1].
         logger.debug(f"summed_waveforms shape: {summed_waveforms.shape}, k: {k}, params keys: {list(params.keys())}")
-        return summed_waveforms, k#, params
+        return summed_waveforms, target#, params
 
 
 

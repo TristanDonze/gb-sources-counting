@@ -10,9 +10,9 @@ def evaluate(model, dataloader, criterion, device):
     all_preds = []
     all_labels = []
     with torch.no_grad():
-        for batch_idx, (summed_waveforms, real_K) in enumerate(dataloader):
+        for batch_idx, (summed_waveforms, target) in enumerate(dataloader):
             X = torch.tensor(summed_waveforms, dtype=torch.float32).to(device)
-            y = torch.tensor(real_K).to(device)
+            y = torch.tensor(target, dtype=torch.long).to(device)
 
             logits = model(X)
             loss = criterion(logits, y)
