@@ -24,8 +24,8 @@ class PoolingConcat(nn.Module):
         self.context_vec = nn.Linear(attn_dim, 1, bias=False)
 
     def forward(self, x):
-        mean_pool = x.mean(dim=1)  # (batch_size, N')
-        max_pool, _ = x.max(dim=1)  # (batch_size, N')
+        mean_pool = x.mean(dim=1)  # (batch_size, d_model)
+        max_pool, _ = x.max(dim=1)  # (batch_size, d_model)
 
         a = torch.tanh(self.attn(x))  # (B, N', attn_dim)
         scores = self.context_vec(a).squeeze(-1)  # (B, N')
@@ -77,4 +77,3 @@ if __name__ == "__main__":
     print(x.shape)
     CE = CardinalityEstimator(input_channels=4, max_K=10)
     out = CE(x)
-    print(out.shape)
