@@ -1,0 +1,20 @@
+from aim import Run
+
+
+aim_run = Run(experiment="gb-source-counting")
+
+
+def track_metric(name, value, *, step=None, epoch=None, split=None, granularity=None):
+    context = {}
+    if split is not None:
+        context["split"] = split
+    if granularity is not None:
+        context["granularity"] = granularity
+
+    aim_run.track(
+        float(value),
+        name=name,
+        step=step,
+        epoch=epoch,
+        context=context,
+    )

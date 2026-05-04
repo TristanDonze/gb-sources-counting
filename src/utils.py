@@ -1,6 +1,6 @@
 import os
 import torch
-def save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_accs, val_recall, val_f1s, best_val_f1, best_val_f1_epoch, epoch, path):
+def save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_accs, val_recall, val_f1s, val_maes, best_val_f1, best_val_f1_epoch, epoch, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     checkpoint = {
         "model_state_dict": model.state_dict(),
@@ -11,6 +11,7 @@ def save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_a
         "val_accs": val_accs,
         "val_recall": val_recall,
         "val_f1s": val_f1s,
+        "val_maes": val_maes,
         "best_val_f1": best_val_f1,
         "best_val_f1_epoch": best_val_f1_epoch,
         "epoch": epoch
@@ -27,7 +28,8 @@ def load_checkpoint(model, optimizer, scheduler, path):
     val_accs = checkpoint["val_accs"]
     val_recall = checkpoint["val_recall"]
     val_f1s = checkpoint["val_f1s"]
+    val_maes = checkpoint["val_maes"]
     best_val_f1 = checkpoint["best_val_f1"]
     best_val_f1_epoch = checkpoint["best_val_f1_epoch"]
     epoch = checkpoint["epoch"]
-    return train_losses, val_losses, val_accs, val_recall, val_f1s, best_val_f1, best_val_f1_epoch, epoch
+    return train_losses, val_losses, val_accs, val_recall, val_f1s, val_maes, best_val_f1, best_val_f1_epoch, epoch
