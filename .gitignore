@@ -219,3 +219,10 @@ __marimo__/
 
 # HDF5 files
 *.hdf5
+
+# aim
+.aim/
+
+# checkpoints
+models/
+
