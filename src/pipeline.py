@@ -95,16 +95,13 @@ def train(load_checkpoint_path=None):
             optimizer,
             scheduler,
             device,
-            epoch=epoch,
         )
         val_loss, val_acc, val_recall_score, val_f1, mae = evaluate(
             model,
             val_loader,
             criterion,
             device,
-            epoch=epoch,
         )
-        aim_epoch = epoch + 1
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         val_accs.append(val_acc)
@@ -112,6 +109,7 @@ def train(load_checkpoint_path=None):
         val_f1s.append(val_f1)
         val_maes.append(mae)
 
+        aim_epoch = epoch + 1
         track_metric(
             "loss",
             train_loss,
