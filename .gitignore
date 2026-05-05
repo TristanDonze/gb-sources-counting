@@ -224,5 +224,5 @@ __marimo__/
 .aim/
 
 # checkpoints
-models/
+runs/
 
