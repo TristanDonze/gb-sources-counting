@@ -12,6 +12,7 @@ dependencies = [
     "rich>=15.0.0",
     "matplotlib>=3.10.9",
     "aim>=3.29.1",
+    "pandas>=3.0.2",
 ]
 
 [[tool.uv.index]]
