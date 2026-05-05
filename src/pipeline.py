@@ -29,9 +29,15 @@ def train(run_manager, load_checkpoint_path=None):
     model = CardinalityEstimator().to(device)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    #     optimizer=optimizer,
+    #     T_max=NB_EPOCHS,
+    #     eta_min=LR_MIN,
+    # )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
         optimizer=optimizer,
-        T_max=NB_EPOCHS,
+        T_0=10,
+        T_mult=2,
         eta_min=LR_MIN,
     )
 

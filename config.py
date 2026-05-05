@@ -12,7 +12,7 @@ model_save_dir = Path("/sps/l2it/tdonze/gb-source-counting/models")
 
 BATCH_SIZE = 128
 
-LR = 3e-4
+LR = 2e-4
 LR_MIN = 1e-6
 WEIGHT_DECAY = 1e-2
-NB_EPOCHS = 50
+NB_EPOCHS = 100
