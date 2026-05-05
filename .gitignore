@@ -226,3 +226,5 @@ __marimo__/
 # checkpoints
 runs/
 
+# CODEX
+AGENTS.md
