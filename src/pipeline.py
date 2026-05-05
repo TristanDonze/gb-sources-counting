@@ -23,7 +23,7 @@ from config import (
 logger = logging.getLogger(__name__)
 
 
-def train(load_checkpoint_path=None):
+def train(run_manager, load_checkpoint_path=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model = CardinalityEstimator().to(device)
@@ -86,6 +86,8 @@ def train(load_checkpoint_path=None):
         logger.info(f"Loaded checkpoint from {load_checkpoint_path}, starting from epoch {start_epoch+1}")
     else:
         start_epoch = 0
+
+    checkpoint_dir = run_manager.checkpoint_dir
 
     for epoch in range(start_epoch, NB_EPOCHS):
         train_loss = train_one_epoch(
@@ -197,7 +199,7 @@ def train(load_checkpoint_path=None):
                 best_val_f1,
                 best_val_f1_epoch,
                 epoch,
-                f"models/best_checkpoint_epoch_{best_val_f1_epoch}.pth",
+                f"{checkpoint_dir}/best_checkpoint.pth",
             )
         else:
             save_checkpoint(
@@ -213,10 +215,46 @@ def train(load_checkpoint_path=None):
                 best_val_f1,
                 best_val_f1_epoch,
                 epoch,
-                f"models/checkpoint_epoch_{epoch}.pth",
+                f"{checkpoint_dir}/checkpoint_epoch_{epoch + 1}.pth",
             )
     logger.info(
         f"Training completed. Best Val F1: {best_val_f1:.4f} "
         f"at epoch {best_val_f1_epoch}"
+    )
+    run_manager.make_plot(
+        name="Training Loss",
+        values=train_losses,
+        xlabel="Epoch",
+        ylabel="Loss",
+    )
+    run_manager.make_plot(
+        name="Validation Loss",
+        values=val_losses,
+        xlabel="Epoch",
+        ylabel="Loss",
+    )
+    run_manager.make_plot(
+        name="Validation Accuracy",
+        values=val_accs,
+        xlabel="Epoch",
+        ylabel="Accuracy",
+    )
+    run_manager.make_plot(
+        name="Validation Recall",
+        values=val_recall,
+        xlabel="Epoch",
+        ylabel="Recall",
+    )
+    run_manager.make_plot(
+        name="Validation F1 Score",
+        values=val_f1s,
+        xlabel="Epoch",
+        ylabel="F1 Score",
+    )
+    run_manager.make_plot(
+        name="Validation MAE",
+        values=val_maes,
+        xlabel="Epoch",
+        ylabel="MAE",
     )
     aim_run.close()
