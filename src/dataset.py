@@ -14,12 +14,14 @@ class GalacticBinariesDataset(Dataset):
         dataset_path,
         max_K: int = 10,
         max_samples: int = 10_000,
+        noise: bool = True,
         deterministic: bool = False,
         seed: int | None = None,
     ):
         self.dataset_path = dataset_path
         self.max_K = max_K
         self.max_samples = max_samples
+        self.noise = noise
         self.deterministic = deterministic
         self.rng = np.random.default_rng(seed)
 
@@ -66,8 +68,12 @@ class GalacticBinariesDataset(Dataset):
             target = k - 1
 
         waveforms = self.waveforms[sampled_indices]
-
         summed_waveforms = waveforms.sum(axis=0)
+
+        if self.noise:
+            noise = self.rng.normal(0, 1, size=summed_waveforms.shape)
+            summed_waveforms += noise
+
         logger.debug(f"summed_waveforms shape: {summed_waveforms.shape}, k: {k}, params keys: {self.attr_names}")
         return summed_waveforms, target#, params
 
