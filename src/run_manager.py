@@ -22,6 +22,8 @@ class RunManager:
         self._reproductibility_dir = os.path.join(self._run_dir, "reproductibility")
         os.makedirs(self._reproductibility_dir, exist_ok=True)
 
+        self.save_aim_hash()
+
         commit = run_cmd(["git", "rev-parse", "HEAD"])
         diff = subprocess.run(
             ["git", "diff", "HEAD"],
