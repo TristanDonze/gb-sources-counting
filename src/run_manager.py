@@ -56,7 +56,7 @@ class RunManager:
             f.write(aim_run_hash)
     
     def _save_plot(self, fig, name):
-        fig_path = os.path.join(self._run_dir, self._evaluation_results_dir, f"{name}.png")
+        fig_path = os.path.join(self._evaluation_results_dir, f"{name}.png")
         fig.savefig(fig_path)
         plt.close(fig)
 
