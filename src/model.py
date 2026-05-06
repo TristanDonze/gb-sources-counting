@@ -35,10 +35,10 @@ class PoolingConcat(nn.Module):
         return torch.cat([mean_pool, max_pool, attn_pool], dim=-1)
 
 class CardinalityEstimator(nn.Module):
-    def __init__(self, input_channels=4, N = 1280, max_K=10):
+    def __init__(self, input_channels=4, out_features=1):
         super(CardinalityEstimator, self).__init__()
 
-        self.max_K = max_K
+        self.out_features = out_features
 
         self.conv_encoder = nn.Sequential(OrderedDict([
             ('conv_1', nn.Conv1d(in_channels=input_channels, out_channels=32, kernel_size=8, stride=2, padding=3)),
@@ -59,7 +59,7 @@ class CardinalityEstimator(nn.Module):
         self.classifier = nn.Sequential(OrderedDict([
             ('fc_1', nn.Linear(in_features=128*3, out_features=2*128)),
             ('gelu_1', nn.GELU()),
-            ('fc_2', nn.Linear(in_features=2*128, out_features=max_K)),
+            ('fc_2', nn.Linear(in_features=2*128, out_features=out_features)),
         ]))
 
 
@@ -69,11 +69,11 @@ class CardinalityEstimator(nn.Module):
         out = self.pos_encoder(out) # (batch_size, N', 128)
         attn_output, attn_output_weights = self.MHAttention(out, out, out) # (batch_size, N', 128)
         out = self.pooling(attn_output) # (batch_size, 128*3)
-        out = self.classifier(out) # (batch_size, max_K)
+        out = self.classifier(out) # (batch_size, out_features)
         return out
     
 if __name__ == "__main__":
     x = torch.randn(1, 4, 1280)
     print(x.shape)
-    CE = CardinalityEstimator(input_channels=4, max_K=10)
+    CE = CardinalityEstimator(input_channels=4, out_features=1)
     out = CE(x)
