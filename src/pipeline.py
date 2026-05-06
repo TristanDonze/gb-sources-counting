@@ -44,7 +44,7 @@ def train(run_manager, load_checkpoint_path=None):
     train_dataset = GalacticBinariesDataset(
         train_dataset_path, 
         max_K=10, 
-        max_samples=50_000,
+        max_samples=10_000,
         noise=True,
         deterministic=False,
         seed=42,
@@ -53,7 +53,7 @@ def train(run_manager, load_checkpoint_path=None):
     val_dataset = GalacticBinariesDataset(
         val_dataset_path,
         max_K=10,
-        max_samples=10_000,
+        max_samples=1_000,
         noise=False,
         deterministic=True,
         seed=0,
