@@ -51,21 +51,21 @@ class GalacticBinariesDataset(Dataset):
         for _ in range(self.length):
             k = self.rng.integers(1, self.max_K + 1)
             sampled_indices = self.rng.choice(self.sample_indices, size=k, replace=False)
-            target = k - 1
+            target = k
             fixed_mixtures.append((sampled_indices, target))
         return fixed_mixtures
 
     def __getitem__(self, idx):
         if self.deterministic:
             sampled_indices, target = self.fixed_mixtures[idx]
-            k = target + 1
+            k = target
         else:
             k = self.rng.integers(1, self.max_K + 1)
             probs = self.idx_weights / self.idx_weights.sum()
 
             sampled_indices = self.rng.choice(self.sample_indices, size=k, replace=False, p=probs)
             self.idx_weights[sampled_indices] *= 0.9  # Update weights
-            target = k - 1
+            target = k
 
         waveforms = self.waveforms[sampled_indices]
         summed_waveforms = waveforms.sum(axis=0)
