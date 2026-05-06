@@ -1,10 +1,11 @@
 import torch
+import torch.nn.functional as F
 from sklearn.metrics import recall_score, f1_score
 
 from src.aim_instance import track_metric
 
 
-def evaluate(model, dataloader, criterion, device):
+def evaluate(model, max_k, dataloader, criterion, device):
     model.eval()
     total_loss = 0.0
     correct = 0
@@ -15,20 +16,25 @@ def evaluate(model, dataloader, criterion, device):
     with torch.no_grad():
         for batch_idx, (summed_waveforms, target) in enumerate(dataloader):
             X = torch.as_tensor(summed_waveforms, dtype=torch.float32, device=device)
-            y = torch.as_tensor(target, dtype=torch.long, device=device)
+            labels = torch.as_tensor(target, dtype=torch.long, device=device)
+            y = labels.float().unsqueeze(1) / max_k
 
-            logits = model(X)
-            loss = criterion(logits, y)
+            logit = model(X)
+            out = torch.sigmoid(logit)
+
+            loss = criterion(out, y)
             loss_value = loss.item()
             total_loss += loss_value
 
-            _, predicted = torch.max(logits.data, 1)
+            predicted = torch.round(out.squeeze(1) * max_k).long()
+            predicted = predicted.clamp(1, max_k)
+
             total += y.size(0)
-            correct += (predicted == y).sum().item()
+            correct += (predicted == labels).sum().item()
 
             batch_preds = predicted.cpu().numpy()
-            batch_labels = y.cpu().numpy()
-            abs_error_sum += torch.abs(predicted - y).sum().item()
+            batch_labels = labels.cpu().numpy()
+            abs_error_sum += torch.abs(predicted - labels).sum().item()
 
             all_preds.extend(batch_preds)
             all_labels.extend(batch_labels)

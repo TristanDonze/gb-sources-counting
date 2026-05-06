@@ -13,6 +13,7 @@ from src.aim_instance import aim_run, track_metric
 from config import (
     train_dataset_path,
     val_dataset_path,
+    MAX_K,
     BATCH_SIZE,
     LR,
     LR_MIN,
@@ -31,7 +32,7 @@ def train(run_manager, load_checkpoint_path=None):
     logger.info("Model architecture:")
     for name, module in model.named_modules():
         logger.info(f"  {name}: {module}")
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.MSELoss()
     logger.info(f"Loss function: {criterion}")
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -48,7 +49,7 @@ def train(run_manager, load_checkpoint_path=None):
 
     train_dataset = GalacticBinariesDataset(
         train_dataset_path, 
-        max_K=10, 
+        max_K=MAX_K, 
         max_samples=10_000,
         noise=True,
         deterministic=False,
@@ -57,7 +58,7 @@ def train(run_manager, load_checkpoint_path=None):
 
     val_dataset = GalacticBinariesDataset(
         val_dataset_path,
-        max_K=10,
+        max_K=MAX_K,
         max_samples=1_000,
         noise=False,
         deterministic=True,
@@ -112,6 +113,7 @@ def train(run_manager, load_checkpoint_path=None):
     for epoch in range(start_epoch, NB_EPOCHS):
         train_loss = train_one_epoch(
             model,
+            MAX_K,
             train_loader,
             criterion,
             optimizer,
@@ -120,6 +122,7 @@ def train(run_manager, load_checkpoint_path=None):
         )
         val_loss, val_acc, val_recall_score, val_f1, mae = evaluate(
             model,
+            MAX_K,
             val_loader,
             criterion,
             device,
