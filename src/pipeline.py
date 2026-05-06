@@ -27,7 +27,12 @@ def train(run_manager, load_checkpoint_path=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model = CardinalityEstimator().to(device)
+    logger.info(f"Total number of parameters: {sum(p.numel() for p in model.parameters())}")
+    logger.info("Model architecture:")
+    for name, module in model.named_modules():
+        logger.info(f"  {name}: {module}")
     criterion = torch.nn.CrossEntropyLoss()
+    logger.info(f"Loss function: {criterion}")
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
     #     optimizer=optimizer,
