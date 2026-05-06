@@ -42,7 +42,7 @@ def train(run_manager, load_checkpoint_path=None):
     # )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
         optimizer=optimizer,
-        T_0=10,
+        T_0=5,
         T_mult=2,
         eta_min=LR_MIN,
     )
@@ -50,7 +50,7 @@ def train(run_manager, load_checkpoint_path=None):
     train_dataset = GalacticBinariesDataset(
         train_dataset_path, 
         max_K=MAX_K, 
-        max_samples=10_000,
+        max_samples=1_000_000,
         noise=True,
         deterministic=False,
         seed=42,
@@ -59,7 +59,7 @@ def train(run_manager, load_checkpoint_path=None):
     val_dataset = GalacticBinariesDataset(
         val_dataset_path,
         max_K=MAX_K,
-        max_samples=1_000,
+        max_samples=100_000,
         noise=False,
         deterministic=True,
         seed=0,
