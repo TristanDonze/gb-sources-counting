@@ -12,7 +12,7 @@ model_save_dir = Path("/sps/l2it/tdonze/gb-source-counting/models")
 
 MAX_K = 10
 
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 
 LR = 3e-4
 LR_MIN = 1e-6
