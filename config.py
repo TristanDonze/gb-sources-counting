@@ -10,6 +10,8 @@ model_save_dir = Path("/sps/l2it/tdonze/gb-source-counting/models")
 
 # Training Hyperparameters 
 
+MAX_K = 10
+
 BATCH_SIZE = 128
 
 LR = 2e-4
