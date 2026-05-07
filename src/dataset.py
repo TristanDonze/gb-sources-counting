@@ -36,11 +36,9 @@ class GalacticBinariesDataset(Dataset):
             for key, value in f['params'].items():
                 setattr(self, key, value[:])  # Load parameters into memory as attributes
 
-        if self.max_K > self.length:
+        if self.max_K > self.total_waveforms:
             raise ValueError(f"max_K={self.max_K} cannot be greater than dataset length={self.length}")
         
-        self.sample_indices = np.arange(self.length)
-        self.idx_weights = np.ones(self.length)  # Initialize weights for sampling
         self.fixed_mixtures = self._build_fixed_mixtures() if self.deterministic else None
                 
     def __len__(self):
@@ -50,7 +48,7 @@ class GalacticBinariesDataset(Dataset):
         fixed_mixtures = []
         for _ in range(self.length):
             k = self.rng.integers(1, self.max_K + 1)
-            sampled_indices = self.rng.choice(self.sample_indices, size=k, replace=False)
+            sampled_indices = self.rng.choice(self.total_waveforms, size=k, replace=False)
             target = k
             fixed_mixtures.append((sampled_indices, target))
         return fixed_mixtures
@@ -58,13 +56,9 @@ class GalacticBinariesDataset(Dataset):
     def __getitem__(self, idx):
         if self.deterministic:
             sampled_indices, target = self.fixed_mixtures[idx]
-            k = target
         else:
             k = self.rng.integers(1, self.max_K + 1)
-            probs = self.idx_weights / self.idx_weights.sum()
-
-            sampled_indices = self.rng.choice(self.sample_indices, size=k, replace=False, p=probs)
-            self.idx_weights[sampled_indices] *= 0.9  # Update weights
+            sampled_indices = self.rng.choice(self.total_waveforms, size=k, replace=False)
             target = k
 
         waveforms = self.waveforms[sampled_indices]
@@ -74,8 +68,7 @@ class GalacticBinariesDataset(Dataset):
             noise = self.rng.normal(0, 1, size=summed_waveforms.shape)
             summed_waveforms += noise
 
-        logger.debug(f"summed_waveforms shape: {summed_waveforms.shape}, k: {k}, params keys: {self.attr_names}")
-        return summed_waveforms, target#, params
+        return summed_waveforms, target
 
 
 
