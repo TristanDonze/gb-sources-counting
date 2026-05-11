@@ -10,6 +10,8 @@ model_save_dir = Path("/sps/l2it/tdonze/gb-source-counting/models")
 
 # Training Hyperparameters 
 
+learning_strategy = "mse" # "mse", "cross_entropy" or "ordinal"
+
 MAX_K = 10
 
 BATCH_SIZE = 256
