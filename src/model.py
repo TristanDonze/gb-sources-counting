@@ -35,10 +35,10 @@ class PoolingConcat(nn.Module):
         return torch.cat([mean_pool, max_pool, attn_pool], dim=-1)
 
 class CardinalityEstimator(nn.Module):
-    def __init__(self, input_channels=4, out_features=1):
+    def __init__(self, learning_strategy="mse", max_K=10, input_channels=4):
         super(CardinalityEstimator, self).__init__()
 
-        self.out_features = out_features
+        self.max_K = max_K
 
         self.conv_encoder = nn.Sequential(OrderedDict([
             ('conv_1', nn.Conv1d(in_channels=input_channels, out_channels=32, kernel_size=8, stride=2, padding=3)),
@@ -59,11 +59,24 @@ class CardinalityEstimator(nn.Module):
         self.classifier = nn.Sequential(OrderedDict([
             ('fc_1', nn.Linear(in_features=128*3, out_features=2*128)),
             ('gelu_1', nn.GELU()),
-            ('fc_2', nn.Linear(in_features=2*128, out_features=out_features)),
         ]))
+
+        if learning_strategy == "mse":
+            self.classifier.add_module('output', nn.Linear(in_features=2*128, out_features=1))
+        elif learning_strategy == "cross_entropy":
+            self.classifier.add_module('output', nn.Linear(in_features=2*128, out_features=self.max_K))
+        elif learning_strategy == "ordinal":
+            self.classifier.add_module('output', nn.Linear(in_features=2*128, out_features=self.max_K - 1))
+        else:
+            raise ValueError(f"Unknown learning strategy: {learning_strategy}")
 
 
     def forward(self, x):
+        # TODO: add skip connection : 
+        # attn_output, _ = self.MHAttention(out, out, out, need_weights=False)
+        # out = self.attn_norm(out + attn_output) # self.attn_norm is LayerNorm, and the same for ffn_norm below
+        # out = self.ffn_norm(out + self.ffn(out))
+
         out = self.conv_encoder(x) # (batch_size, 128, N')
         out = out.permute(0, 2, 1) # (batch_size, N', 128)
         out = self.pos_encoder(out) # (batch_size, N', 128)
@@ -75,5 +88,5 @@ class CardinalityEstimator(nn.Module):
 if __name__ == "__main__":
     x = torch.randn(1, 4, 1280)
     print(x.shape)
-    CE = CardinalityEstimator(input_channels=4, out_features=1)
+    CE = CardinalityEstimator(learning_strategy="ordinal", max_K=10, input_channels=4)
     out = CE(x)
