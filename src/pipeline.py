@@ -41,7 +41,7 @@ def train(run_manager, load_checkpoint_path=None):
     logger.info("Model architecture:")
     for name, module in model.named_modules():
         logger.info(f"  {name}: {module}")
-    logger.info(f"Loss function: {criterion}")
+    logger.info(f"Learning strategy: {learning_strategy}")
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
     #     optimizer=optimizer,
