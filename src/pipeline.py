@@ -13,6 +13,7 @@ from src.aim_instance import aim_run, track_metric
 from config import (
     train_dataset_path,
     val_dataset_path,
+    learning_strategy,
     MAX_K,
     BATCH_SIZE,
     LR,
@@ -27,12 +28,19 @@ logger = logging.getLogger(__name__)
 def train(run_manager, load_checkpoint_path=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model = CardinalityEstimator().to(device)
+    if learning_strategy == "mse":
+        criterion = torch.nn.MSELoss()
+    elif learning_strategy == "cross_entropy":
+        criterion = torch.nn.CrossEntropyLoss()
+    elif learning_strategy == "ordinal":
+        criterion = torch.nn.BCEWithLogitsLoss()
+    else:
+        raise ValueError(f"Unknown learning strategy: {learning_strategy}")
+    model = CardinalityEstimator(learning_strategy=learning_strategy, max_K=MAX_K).to(device)
     logger.info(f"Total number of parameters: {sum(p.numel() for p in model.parameters())}")
     logger.info("Model architecture:")
     for name, module in model.named_modules():
         logger.info(f"  {name}: {module}")
-    criterion = torch.nn.MSELoss()
     logger.info(f"Loss function: {criterion}")
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -118,6 +126,7 @@ def train(run_manager, load_checkpoint_path=None):
             criterion,
             optimizer,
             scheduler,
+            learning_strategy,
             device,
         )
         val_loss, val_acc, val_recall_score, val_f1, mae = evaluate(
@@ -125,6 +134,7 @@ def train(run_manager, load_checkpoint_path=None):
             MAX_K,
             val_loader,
             criterion,
+            learning_strategy,
             device,
         )
         train_losses.append(train_loss)
