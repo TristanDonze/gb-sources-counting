@@ -86,7 +86,7 @@ class CardinalityEstimator(nn.Module):
         return out
     
 if __name__ == "__main__":
-    x = torch.randn(1, 4, 1280)
+    x = torch.randn(1, 4, 128)
     print(x.shape)
     CE = CardinalityEstimator(learning_strategy="ordinal", max_K=10, input_channels=4)
     out = CE(x)
