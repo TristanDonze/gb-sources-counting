@@ -15,6 +15,8 @@ class GalacticBinariesDataset(Dataset):
         max_K: int = 10,
         max_samples: int = 10_000,
         noise: bool = True,
+        energy_matched=False,
+        target_energy=22000.0,
         deterministic: bool = False,
         seed: int | None = None,
     ):
@@ -23,6 +25,8 @@ class GalacticBinariesDataset(Dataset):
         self.max_samples = max_samples
         self.noise = noise
         self.deterministic = deterministic
+        self.energy_matched = energy_matched
+        self.target_energy = target_energy
         self.rng = np.random.default_rng(seed)
 
         with h5py.File(self.dataset_path, 'r') as f:
@@ -63,6 +67,12 @@ class GalacticBinariesDataset(Dataset):
 
         waveforms = self.waveforms[sampled_indices]
         summed_waveforms = waveforms.sum(axis=0)
+
+        if self.energy_matched:
+            energy = np.sum(summed_waveforms ** 2)
+            if energy > 0:
+                scaling_factor = np.sqrt(self.target_energy / (energy + 1e-12))
+                summed_waveforms *= scaling_factor
 
         if self.noise:
             noise = self.rng.normal(0, 1, size=summed_waveforms.shape)
