@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 def train(run_manager, load_checkpoint_path=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    logger.info(f"Using device: {device}")
 
     if learning_strategy == "mse":
         criterion = torch.nn.MSELoss()
@@ -36,24 +37,26 @@ def train(run_manager, load_checkpoint_path=None):
         criterion = torch.nn.BCEWithLogitsLoss()
     else:
         raise ValueError(f"Unknown learning strategy: {learning_strategy}")
+    logger.info(f"Learning strategy: {learning_strategy}")
+
     model = CardinalityEstimator(learning_strategy=learning_strategy, max_K=MAX_K).to(device)
     logger.info(f"Total number of parameters: {sum(p.numel() for p in model.parameters())}")
     logger.info("Model architecture:")
     for name, module in model.named_modules():
         logger.info(f"  {name}: {module}")
-    logger.info(f"Learning strategy: {learning_strategy}")
+    
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-    #     optimizer=optimizer,
-    #     T_max=NB_EPOCHS,
-    #     eta_min=LR_MIN,
-    # )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
         optimizer=optimizer,
         T_0=5,
         T_mult=2,
         eta_min=LR_MIN,
     )
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    #     optimizer=optimizer,
+    #     T_max=NB_EPOCHS,
+    #     eta_min=LR_MIN,
+    # )
 
     train_dataset = GalacticBinariesDataset(
         train_dataset_path, 
