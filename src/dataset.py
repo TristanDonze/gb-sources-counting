@@ -14,6 +14,7 @@ class GalacticBinariesDataset(Dataset):
         dataset_path,
         max_K: int = 10,
         max_samples: int = 10_000,
+        indices: np.ndarray | None = None,
         noise: bool = True,
         energy_matched=False,
         target_energy=22000.0,
@@ -23,6 +24,7 @@ class GalacticBinariesDataset(Dataset):
         self.dataset_path = dataset_path
         self.max_K = max_K
         self.max_samples = max_samples
+        self.indices = indices
         self.noise = noise
         self.deterministic = deterministic
         self.energy_matched = energy_matched
@@ -39,6 +41,12 @@ class GalacticBinariesDataset(Dataset):
             logger.info(f"Loading parameters {', '.join(self.attr_names)} in memory...")
             for key, value in f['params'].items():
                 setattr(self, key, value[:])  # Load parameters into memory as attributes
+        if self.indices is not None:
+            self.waveforms = self.waveforms[self.indices]
+            for attr_name in self.attr_names:
+                setattr(self, attr_name, getattr(self, attr_name)[self.indices])
+            self.total_waveforms = len(self.indices)
+            self.length = min(max_samples, self.total_waveforms)
 
         if self.max_K > self.total_waveforms:
             raise ValueError(f"max_K={self.max_K} cannot be greater than dataset length={self.length}")
@@ -79,6 +87,54 @@ class GalacticBinariesDataset(Dataset):
             summed_waveforms += noise
 
         return summed_waveforms, target
+    
+def create_train_val_datasets(dataset_path, 
+                              train_size=0.8,
+                              max_K=10,
+                              max_samples_train=1_000_000,
+                              max_samples_val=100_000,
+                              noise_train=True,
+                              noise_val=False,
+                              deterministic_train=False,
+                              deterministic_val=True,
+                              energy_matched_train=False,
+                              energy_matched_val=False,
+                              target_energy_train=22000.0,
+                              target_energy_val=22000.0,
+                              seed_train=42,
+                              seed_val=0,
+                              ):
+    with h5py.File(dataset_path, 'r') as f:
+            total_waveforms = f['waveforms'].shape[0]
+    indices = np.arange(total_waveforms)
+    rng = np.random.default_rng(seed_train)
+    rng.shuffle(indices)
+    train_indices = indices[:int(train_size * total_waveforms)]
+    val_indices = indices[int(train_size * total_waveforms):]
+    train_dataset = GalacticBinariesDataset(
+        dataset_path=dataset_path,
+        max_K=max_K,
+        max_samples=max_samples_train,
+        indices=train_indices,
+        noise=noise_train,
+        deterministic=deterministic_train,
+        energy_matched=energy_matched_train,
+        target_energy=target_energy_train,
+        seed=seed_train
+    )
+    val_dataset = GalacticBinariesDataset(
+        dataset_path=dataset_path,
+        max_K=max_K,
+        max_samples=max_samples_val,
+        indices=val_indices,
+        noise=noise_val,
+        deterministic=deterministic_val,
+        energy_matched=energy_matched_val,
+        target_energy=target_energy_val,
+        seed=seed_val
+    )
+    return train_dataset, val_dataset, 
+
 
 
 
