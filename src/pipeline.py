@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from src.model import CardinalityEstimator
-from src.dataset import GalacticBinariesDataset
+from src.dataset import create_train_val_datasets
 
 from src.training import train_one_epoch
 from src.validation import evaluate
@@ -11,8 +11,9 @@ from src.utils import save_checkpoint, load_checkpoint
 from src.aim_instance import aim_run, track_metric
 
 from config import (
-    train_dataset_path,
-    val_dataset_path,
+    dataset_path,
+    TRAIN_SIZE,
+    SPLIT_SEED,
     learning_strategy,
     MAX_K,
     BATCH_SIZE,
@@ -58,26 +59,27 @@ def train(run_manager, load_checkpoint_path=None):
     #     eta_min=LR_MIN,
     # )
 
-    train_dataset = GalacticBinariesDataset(
-        train_dataset_path, 
-        max_K=MAX_K, 
-        max_samples=1_000_000,
-        noise=True,
-        deterministic=False,
-        seed=42,
-    )
-
-    val_dataset = GalacticBinariesDataset(
-        val_dataset_path,
+    train_dataset, val_dataset, val_energy_matched_dataset = create_train_val_datasets(
+        dataset_path,
+        train_size=TRAIN_SIZE,
         max_K=MAX_K,
-        max_samples=100_000,
-        noise=False,
-        deterministic=True,
-        seed=0,
+        noise_train=True,
+        noise_val=True,
+        deterministic_train=False,
+        deterministic_val=True,
+        split_seed=SPLIT_SEED,
+        seed_train=42,
+        seed_val=0,
     )
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False)
+    val_energy_matched_loader = DataLoader(
+        val_energy_matched_dataset,
+        batch_size=BATCH_SIZE,
+        num_workers=0,
+        shuffle=False,
+    )
 
     aim_run["hparams"] = {
         "batch_size": BATCH_SIZE,
@@ -87,10 +89,15 @@ def train(run_manager, load_checkpoint_path=None):
         "epochs": NB_EPOCHS,
     }
     aim_run["dataset"] = {
-        "train_dataset_path": str(train_dataset_path),
-        "val_dataset_path": str(val_dataset_path),
+        "dataset_path": str(dataset_path),
+        "train_size": TRAIN_SIZE,
+        "split_seed": SPLIT_SEED,
+        "train_waveforms": train_dataset.total_waveforms,
+        "val_waveforms": val_dataset.total_waveforms,
+        "val_energy_matched_waveforms": val_energy_matched_dataset.total_waveforms,
         "train_samples": len(train_dataset),
         "val_samples": len(val_dataset),
+        "val_energy_matched_samples": len(val_energy_matched_dataset),
     }
 
     train_losses = []
@@ -99,6 +106,11 @@ def train(run_manager, load_checkpoint_path=None):
     val_recall = []
     val_f1s = []
     val_maes = []
+    val_energy_matched_losses = []
+    val_energy_matched_accs = []
+    val_energy_matched_recall = []
+    val_energy_matched_f1s = []
+    val_energy_matched_maes = []
     best_val_f1 = 0.0
     best_val_f1_epoch = 0
 
@@ -113,6 +125,11 @@ def train(run_manager, load_checkpoint_path=None):
             best_val_f1,
             best_val_f1_epoch,
             last_completed_epoch,
+            val_energy_matched_losses,
+            val_energy_matched_accs,
+            val_energy_matched_recall,
+            val_energy_matched_f1s,
+            val_energy_matched_maes,
         ) = load_checkpoint(model, optimizer, scheduler, load_checkpoint_path)
         start_epoch = last_completed_epoch + 1
         logger.info(f"Loaded checkpoint from {load_checkpoint_path}, starting from epoch {start_epoch+1}")
@@ -140,12 +157,31 @@ def train(run_manager, load_checkpoint_path=None):
             learning_strategy,
             device,
         )
+        (
+            val_energy_matched_loss,
+            val_energy_matched_acc,
+            val_energy_matched_recall_score,
+            val_energy_matched_f1,
+            val_energy_matched_mae,
+        ) = evaluate(
+            model,
+            MAX_K,
+            val_energy_matched_loader,
+            criterion,
+            learning_strategy,
+            device,
+        )
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         val_accs.append(val_acc)
         val_recall.append(val_recall_score)
         val_f1s.append(val_f1)
         val_maes.append(mae)
+        val_energy_matched_losses.append(val_energy_matched_loss)
+        val_energy_matched_accs.append(val_energy_matched_acc)
+        val_energy_matched_recall.append(val_energy_matched_recall_score)
+        val_energy_matched_f1s.append(val_energy_matched_f1)
+        val_energy_matched_maes.append(val_energy_matched_mae)
 
         aim_epoch = epoch + 1
         track_metric(
@@ -197,6 +233,46 @@ def train(run_manager, load_checkpoint_path=None):
             granularity="epoch",
         )
         track_metric(
+            "loss",
+            val_energy_matched_loss,
+            step=aim_epoch,
+            epoch=aim_epoch,
+            split="val_energy_matched",
+            granularity="epoch",
+        )
+        track_metric(
+            "accuracy",
+            val_energy_matched_acc,
+            step=aim_epoch,
+            epoch=aim_epoch,
+            split="val_energy_matched",
+            granularity="epoch",
+        )
+        track_metric(
+            "recall",
+            val_energy_matched_recall_score,
+            step=aim_epoch,
+            epoch=aim_epoch,
+            split="val_energy_matched",
+            granularity="epoch",
+        )
+        track_metric(
+            "f1",
+            val_energy_matched_f1,
+            step=aim_epoch,
+            epoch=aim_epoch,
+            split="val_energy_matched",
+            granularity="epoch",
+        )
+        track_metric(
+            "mae",
+            val_energy_matched_mae,
+            step=aim_epoch,
+            epoch=aim_epoch,
+            split="val_energy_matched",
+            granularity="epoch",
+        )
+        track_metric(
             "learning_rate",
             optimizer.param_groups[0]["lr"],
             step=aim_epoch,
@@ -208,6 +284,13 @@ def train(run_manager, load_checkpoint_path=None):
             f"Epoch {epoch+1}/{NB_EPOCHS} - Train Loss: {train_loss:.4f} "
             f"- Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f} "
             f"- Val Recall: {val_recall_score:.4f} - Val F1: {val_f1:.4f} - Val MAE: {mae:.4f}"
+        )
+        logger.info(
+            f"Epoch {epoch+1}/{NB_EPOCHS} - Val Energy-Matched Loss: {val_energy_matched_loss:.4f} "
+            f"- Val Energy-Matched Acc: {val_energy_matched_acc:.4f} "
+            f"- Val Energy-Matched Recall: {val_energy_matched_recall_score:.4f} "
+            f"- Val Energy-Matched F1: {val_energy_matched_f1:.4f} "
+            f"- Val Energy-Matched MAE: {val_energy_matched_mae:.4f}"
         )
 
         # Save checkpoint if current epoch has the best validation F1 score
@@ -236,6 +319,11 @@ def train(run_manager, load_checkpoint_path=None):
                 best_val_f1_epoch,
                 epoch,
                 f"{checkpoint_dir}/best_checkpoint.pth",
+                val_energy_matched_losses=val_energy_matched_losses,
+                val_energy_matched_accs=val_energy_matched_accs,
+                val_energy_matched_recall=val_energy_matched_recall,
+                val_energy_matched_f1s=val_energy_matched_f1s,
+                val_energy_matched_maes=val_energy_matched_maes,
             )
         else:
             save_checkpoint(
@@ -252,6 +340,11 @@ def train(run_manager, load_checkpoint_path=None):
                 best_val_f1_epoch,
                 epoch,
                 f"{checkpoint_dir}/checkpoint_epoch_{epoch + 1}.pth",
+                val_energy_matched_losses=val_energy_matched_losses,
+                val_energy_matched_accs=val_energy_matched_accs,
+                val_energy_matched_recall=val_energy_matched_recall,
+                val_energy_matched_f1s=val_energy_matched_f1s,
+                val_energy_matched_maes=val_energy_matched_maes,
             )
     logger.info(
         f"Training completed. Best Val F1: {best_val_f1:.4f} "
@@ -290,6 +383,36 @@ def train(run_manager, load_checkpoint_path=None):
     run_manager.make_plot(
         name="Validation MAE",
         values=val_maes,
+        xlabel="Epoch",
+        ylabel="MAE",
+    )
+    run_manager.make_plot(
+        name="Validation Energy-Matched Loss",
+        values=val_energy_matched_losses,
+        xlabel="Epoch",
+        ylabel="Loss",
+    )
+    run_manager.make_plot(
+        name="Validation Energy-Matched Accuracy",
+        values=val_energy_matched_accs,
+        xlabel="Epoch",
+        ylabel="Accuracy",
+    )
+    run_manager.make_plot(
+        name="Validation Energy-Matched Recall",
+        values=val_energy_matched_recall,
+        xlabel="Epoch",
+        ylabel="Recall",
+    )
+    run_manager.make_plot(
+        name="Validation Energy-Matched F1 Score",
+        values=val_energy_matched_f1s,
+        xlabel="Epoch",
+        ylabel="F1 Score",
+    )
+    run_manager.make_plot(
+        name="Validation Energy-Matched MAE",
+        values=val_energy_matched_maes,
         xlabel="Epoch",
         ylabel="MAE",
     )

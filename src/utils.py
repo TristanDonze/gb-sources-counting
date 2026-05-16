@@ -1,6 +1,27 @@
 import os
 import torch
-def save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_accs, val_recall, val_f1s, val_maes, best_val_f1, best_val_f1_epoch, epoch, path):
+
+
+def save_checkpoint(
+    model,
+    optimizer,
+    scheduler,
+    train_losses,
+    val_losses,
+    val_accs,
+    val_recall,
+    val_f1s,
+    val_maes,
+    best_val_f1,
+    best_val_f1_epoch,
+    epoch,
+    path,
+    val_energy_matched_losses=None,
+    val_energy_matched_accs=None,
+    val_energy_matched_recall=None,
+    val_energy_matched_f1s=None,
+    val_energy_matched_maes=None,
+):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     checkpoint = {
         "model_state_dict": model.state_dict(),
@@ -12,11 +33,17 @@ def save_checkpoint(model, optimizer, scheduler, train_losses, val_losses, val_a
         "val_recall": val_recall,
         "val_f1s": val_f1s,
         "val_maes": val_maes,
+        "val_energy_matched_losses": val_energy_matched_losses or [],
+        "val_energy_matched_accs": val_energy_matched_accs or [],
+        "val_energy_matched_recall": val_energy_matched_recall or [],
+        "val_energy_matched_f1s": val_energy_matched_f1s or [],
+        "val_energy_matched_maes": val_energy_matched_maes or [],
         "best_val_f1": best_val_f1,
         "best_val_f1_epoch": best_val_f1_epoch,
         "epoch": epoch
     }
     torch.save(checkpoint, path)
+
 
 def load_checkpoint(model, optimizer, scheduler, path):
     checkpoint = torch.load(path)
@@ -29,7 +56,27 @@ def load_checkpoint(model, optimizer, scheduler, path):
     val_recall = checkpoint["val_recall"]
     val_f1s = checkpoint["val_f1s"]
     val_maes = checkpoint["val_maes"]
+    val_energy_matched_losses = checkpoint.get("val_energy_matched_losses", [])
+    val_energy_matched_accs = checkpoint.get("val_energy_matched_accs", [])
+    val_energy_matched_recall = checkpoint.get("val_energy_matched_recall", [])
+    val_energy_matched_f1s = checkpoint.get("val_energy_matched_f1s", [])
+    val_energy_matched_maes = checkpoint.get("val_energy_matched_maes", [])
     best_val_f1 = checkpoint["best_val_f1"]
     best_val_f1_epoch = checkpoint["best_val_f1_epoch"]
     epoch = checkpoint["epoch"]
-    return train_losses, val_losses, val_accs, val_recall, val_f1s, val_maes, best_val_f1, best_val_f1_epoch, epoch
+    return (
+        train_losses,
+        val_losses,
+        val_accs,
+        val_recall,
+        val_f1s,
+        val_maes,
+        best_val_f1,
+        best_val_f1_epoch,
+        epoch,
+        val_energy_matched_losses,
+        val_energy_matched_accs,
+        val_energy_matched_recall,
+        val_energy_matched_f1s,
+        val_energy_matched_maes,
+    )
