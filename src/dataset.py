@@ -18,6 +18,7 @@ class GalacticBinariesDataset(Dataset):
         noise: bool = True,
         energy_matched=False,
         target_energy=22000.0,
+        return_params: bool = False,
         deterministic: bool = False,
         seed: int | None = None,
     ):
@@ -29,6 +30,7 @@ class GalacticBinariesDataset(Dataset):
         self.deterministic = deterministic
         self.energy_matched = energy_matched
         self.target_energy = target_energy
+        self.return_params = return_params
         self.seed = seed
         self.rng = np.random.default_rng(seed)
 
@@ -96,10 +98,23 @@ class GalacticBinariesDataset(Dataset):
             return np.random.default_rng(seed_seq)
 
         return self.rng
+    
+    def _build_padded_params(self, sampled_indices, k):
+        params = {}
+        for attr in self.attr_names:
+            values = np.asarray(getattr(self, attr)[sampled_indices])
+            padded_shape = (self.max_K,) + values.shape[1:]
+            padded = np.zeros(padded_shape, dtype=values.dtype)
+            padded[:k] = values
+            params[attr] = padded
+
+        params["source_mask"] = np.arange(self.max_K) < k
+        return params
 
     def __getitem__(self, idx):
         if self.deterministic:
             sampled_indices, target = self.fixed_mixtures[idx]
+            k = target
         else:
             k = self.rng.integers(1, self.max_K + 1)
             sampled_indices = self.rng.choice(self.total_waveforms, size=k, replace=False)
@@ -119,6 +134,10 @@ class GalacticBinariesDataset(Dataset):
             noise = noise_rng.normal(0, 1, size=summed_waveforms.shape)
             summed_waveforms += noise
 
+        if self.return_params:
+            params = self._build_padded_params(sampled_indices, k)
+            return summed_waveforms, target, params
+
         return summed_waveforms, target
     
 def create_train_val_datasets(
@@ -134,6 +153,7 @@ def create_train_val_datasets(
     energy_matched_train=False,
     target_energy_train=22000.0,
     target_energy_val=22000.0,
+    return_params=False,
     split_seed=42,
     seed_train=42,
     seed_val=0,
@@ -160,6 +180,7 @@ def create_train_val_datasets(
         deterministic=deterministic_train,
         energy_matched=energy_matched_train,
         target_energy=target_energy_train,
+        return_params=return_params,
         seed=seed_train
     )
 
@@ -172,6 +193,7 @@ def create_train_val_datasets(
         deterministic=deterministic_val,
         energy_matched=False,
         target_energy=target_energy_val,
+        return_params=return_params,
         seed=seed_val
     )
 
@@ -184,6 +206,7 @@ def create_train_val_datasets(
         deterministic=deterministic_val,
         energy_matched=True,
         target_energy=target_energy_val,
+        return_params=return_params,
         seed=seed_val
     )
     return train_dataset, val_dataset, val_energy_matched_dataset
