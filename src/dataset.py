@@ -29,6 +29,7 @@ class GalacticBinariesDataset(Dataset):
         self.deterministic = deterministic
         self.energy_matched = energy_matched
         self.target_energy = target_energy
+        self.seed = seed
         self.rng = np.random.default_rng(seed)
 
         with h5py.File(self.dataset_path, 'r') as f:
@@ -87,6 +88,14 @@ class GalacticBinariesDataset(Dataset):
             target = k
             fixed_mixtures.append((sampled_indices, target))
         return fixed_mixtures
+    
+    def _get_noise_rng(self, idx):
+        if self.deterministic:
+            seed = 0 if self.seed is None else self.seed
+            seed_seq = np.random.SeedSequence([seed, int(idx), 12345])
+            return np.random.default_rng(seed_seq)
+
+        return self.rng
 
     def __getitem__(self, idx):
         if self.deterministic:
@@ -106,7 +115,8 @@ class GalacticBinariesDataset(Dataset):
                 summed_waveforms *= scaling_factor
 
         if self.noise:
-            noise = self.rng.normal(0, 1, size=summed_waveforms.shape)
+            noise_rng = self._get_noise_rng(idx)
+            noise = noise_rng.normal(0, 1, size=summed_waveforms.shape)
             summed_waveforms += noise
 
         return summed_waveforms, target
