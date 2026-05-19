@@ -53,6 +53,13 @@ class CardinalityEstimator(nn.Module):
         self.MHAttention = nn.MultiheadAttention(
             embed_dim=128, num_heads=4, batch_first=True
         )
+        # self.attn_norm = nn.LayerNorm(128)
+        # self.ffn = nn.Sequential(OrderedDict([
+        #     ('fc_1', nn.Linear(in_features=128, out_features=2*128)),
+        #     ('gelu_1', nn.GELU()),
+        #     ('fc_2', nn.Linear(in_features=2*128, out_features=128)),
+        # ]))
+        # self.ffn_norm = nn.LayerNorm(128)
 
         self.pooling = PoolingConcat(d_model=128, attn_dim=128)
 
@@ -72,16 +79,17 @@ class CardinalityEstimator(nn.Module):
 
 
     def forward(self, x):
-        # TODO: add skip connection : 
-        # attn_output, _ = self.MHAttention(out, out, out, need_weights=False)
-        # out = self.attn_norm(out + attn_output) # self.attn_norm is LayerNorm, and the same for ffn_norm below
-        # out = self.ffn_norm(out + self.ffn(out))
-
         out = self.conv_encoder(x) # (batch_size, 128, N')
         out = out.permute(0, 2, 1) # (batch_size, N', 128)
         out = self.pos_encoder(out) # (batch_size, N', 128)
+
+        # attn_output, _ = self.MHAttention(out, out, out, need_weights=False) # (batch_size, N', 128)
+        # out = self.attn_norm(out + attn_output)
+        # out = self.ffn_norm(out + self.ffn(out))
+        # out = self.pooling(out) # (batch_size, 128*3)
+
         attn_output, attn_output_weights = self.MHAttention(out, out, out) # (batch_size, N', 128)
-        out = self.pooling(attn_output) # (batch_size, 128*3)
+        out = self.pooling(attn_output)
         out = self.classifier(out) # (batch_size, out_features)
         return out
     
