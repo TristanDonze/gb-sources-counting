@@ -63,6 +63,8 @@ def train(run_manager, load_checkpoint_path=None):
         dataset_path,
         train_size=TRAIN_SIZE,
         max_K=MAX_K,
+        max_samples_train=100_000,
+        max_samples_val=20_000,
         noise_train=True,
         noise_val=True,
         deterministic_train=False,
