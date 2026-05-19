@@ -32,10 +32,13 @@ class GalacticBinariesDataset(Dataset):
         self.rng = np.random.default_rng(seed)
 
         with h5py.File(self.dataset_path, 'r') as f:
-            total_waveforms = f['waveforms'].shape[0]
-            selection = self._normalize_indices(indices, total_waveforms)
+            total_waveforms = f['waveforms'].shape[0] # 2M+
+            logger.info(f"Total waveforms in dataset: {total_waveforms}")
+            selection = self._normalize_indices(indices, total_waveforms) # 
             self.total_waveforms = self._selection_length(selection, total_waveforms)
+            logger.info(f"Selected {self.total_waveforms} waveforms for use in the dataset")
             self.length = self.total_waveforms if max_samples is None else min(max_samples, self.total_waveforms)
+            logger.info(f"Dataset length set to {self.length} samples (max_samples={max_samples})")
             logger.info(f"Loading {self.total_waveforms} waveforms in memory...")
             self.waveforms = f['waveforms'][selection]  # Load selected waveforms into memory
 
