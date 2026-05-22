@@ -44,11 +44,13 @@ class GalacticBinariesDataset(Dataset):
             logger.info(f"Dataset length set to {self.length} samples (max_samples={max_samples})")
             logger.info(f"Loading {self.total_waveforms} waveforms in memory...")
             self.waveforms = f['waveforms'][selection]  # Load selected waveforms into memory
+            logger.info(f"Waveforms loaded with shape {self.waveforms.shape}")
 
             self.attr_names = list(f['params'].keys())
             logger.info(f"Loading parameters {', '.join(self.attr_names)} in memory...")
             for key, value in f['params'].items():
                 setattr(self, key, value[selection])  # Load selected parameters into memory as attributes
+            logger.info("Parameters loaded successfully")
 
         if self.max_K > self.total_waveforms:
             raise ValueError(f"max_K={self.max_K} cannot be greater than selected waveforms={self.total_waveforms}")
