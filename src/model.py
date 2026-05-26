@@ -35,10 +35,11 @@ class PoolingConcat(nn.Module):
         return torch.cat([mean_pool, max_pool, attn_pool], dim=-1)
 
 class CardinalityEstimator(nn.Module):
-    def __init__(self, learning_strategy="mse", max_K=10, input_channels=4):
+    def __init__(self, learning_strategy="mse", max_K=10, input_channels=4, dim_model=256):
         super(CardinalityEstimator, self).__init__()
 
         self.max_K = max_K
+        self.dim_model = dim_model
 
         self.conv_encoder = nn.Sequential(OrderedDict([
             ('conv_1', nn.Conv1d(in_channels=input_channels, out_channels=32, kernel_size=8, stride=2, padding=3)),
@@ -46,34 +47,36 @@ class CardinalityEstimator(nn.Module):
             ('conv_2', nn.Conv1d(in_channels=32, out_channels=64, kernel_size=8, stride=2, padding=3)),
             ('gelu_2', nn.GELU()),
             ('conv_3', nn.Conv1d(in_channels=64, out_channels=128, kernel_size=5, stride=1, padding=3)),
+            ('gelu_3', nn.GELU()),
+            ('conv_4', nn.Conv1d(in_channels=128, out_channels=dim_model, kernel_size=3, stride=1, padding=1)),
         ]))
 
-        self.pos_encoder = PosEnc(d_model=128, max_len=10_000)
+        self.pos_encoder = PosEnc(d_model=dim_model, max_len=10_000)
 
         self.MHAttention = nn.MultiheadAttention(
-            embed_dim=128, num_heads=4, batch_first=True
+            embed_dim=dim_model, num_heads=4, batch_first=True
         )
-        # self.attn_norm = nn.LayerNorm(128)
+        # self.attn_norm = nn.LayerNorm(dim_model)
         # self.ffn = nn.Sequential(OrderedDict([
-        #     ('fc_1', nn.Linear(in_features=128, out_features=2*128)),
+        #     ('fc_1', nn.Linear(in_features=dim_model, out_features=2*dim_model)),
         #     ('gelu_1', nn.GELU()),
-        #     ('fc_2', nn.Linear(in_features=2*128, out_features=128)),
+        #     ('fc_2', nn.Linear(in_features=2*dim_model, out_features=dim_model)),
         # ]))
-        # self.ffn_norm = nn.LayerNorm(128)
+        # self.ffn_norm = nn.LayerNorm(dim_model)
 
-        self.pooling = PoolingConcat(d_model=128, attn_dim=128)
+        self.pooling = PoolingConcat(d_model=dim_model, attn_dim=dim_model)
 
         self.classifier = nn.Sequential(OrderedDict([
-            ('fc_1', nn.Linear(in_features=128*3, out_features=2*128)),
+            ('fc_1', nn.Linear(in_features=dim_model*3, out_features=2*dim_model)),
             ('gelu_1', nn.GELU()),
         ]))
 
         if learning_strategy == "mse":
-            self.classifier.add_module('output', nn.Linear(in_features=2*128, out_features=1))
+            self.classifier.add_module('output', nn.Linear(in_features=2*dim_model, out_features=1))
         elif learning_strategy == "cross_entropy":
-            self.classifier.add_module('output', nn.Linear(in_features=2*128, out_features=self.max_K))
+            self.classifier.add_module('output', nn.Linear(in_features=2*dim_model, out_features=self.max_K))
         elif learning_strategy == "ordinal":
-            self.classifier.add_module('output', nn.Linear(in_features=2*128, out_features=self.max_K - 1))
+            self.classifier.add_module('output', nn.Linear(in_features=2*dim_model, out_features=self.max_K - 1))
         else:
             raise ValueError(f"Unknown learning strategy: {learning_strategy}")
 
