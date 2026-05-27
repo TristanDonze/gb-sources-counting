@@ -61,7 +61,7 @@ def train(run_manager, load_checkpoint_path=None):
     #     eta_min=LR_MIN,
     # )
 
-    dataset_path = medium_dataset_path
+    dataset_path = large_dataset_path
 
     train_dataset, val_dataset, val_energy_matched_dataset = create_train_val_datasets(
         dataset_path,
