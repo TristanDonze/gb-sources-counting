@@ -10,7 +10,7 @@ large_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_datase
 train_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/train_dataset_1M_diff_1.hdf5")
 val_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/val_dataset_100K_diff_1.hdf5")
 
-TRAIN_SIZE = 0.9
+TRAIN_SIZE = 0.8
 SPLIT_SEED = 42
 
 # Training Hyperparameters 
@@ -24,4 +24,4 @@ BATCH_SIZE = 256
 LR = 3e-4
 LR_MIN = 1e-6
 WEIGHT_DECAY = 1e-2
-NB_EPOCHS = 300
+NB_EPOCHS = 75
