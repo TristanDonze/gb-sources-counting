@@ -21,6 +21,7 @@ def save_checkpoint(
     val_energy_matched_recall=None,
     val_energy_matched_f1s=None,
     val_energy_matched_maes=None,
+    min_lr_reached_epoch=None,
 ):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     checkpoint = {
@@ -40,6 +41,7 @@ def save_checkpoint(
         "val_energy_matched_maes": val_energy_matched_maes or [],
         "best_val_f1": best_val_f1,
         "best_val_f1_epoch": best_val_f1_epoch,
+        "min_lr_reached_epoch": min_lr_reached_epoch,
         "epoch": epoch
     }
     torch.save(checkpoint, path)
@@ -63,6 +65,7 @@ def load_checkpoint(model, optimizer, scheduler, path):
     val_energy_matched_maes = checkpoint.get("val_energy_matched_maes", [])
     best_val_f1 = checkpoint["best_val_f1"]
     best_val_f1_epoch = checkpoint["best_val_f1_epoch"]
+    min_lr_reached_epoch = checkpoint.get("min_lr_reached_epoch")
     epoch = checkpoint["epoch"]
     return (
         train_losses,
@@ -79,4 +82,5 @@ def load_checkpoint(model, optimizer, scheduler, path):
         val_energy_matched_recall,
         val_energy_matched_f1s,
         val_energy_matched_maes,
+        min_lr_reached_epoch,
     )

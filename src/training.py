@@ -7,7 +7,6 @@ def train_one_epoch(
     dataloader,
     criterion,
     optimizer,
-    scheduler,
     learning_strategy,
     device,
 ):
@@ -40,6 +39,5 @@ def train_one_epoch(
 
         loss_value = loss.item()
         total_loss += loss_value
-    scheduler.step()
     avg_loss = total_loss / len(dataloader)
     return avg_loss

@@ -23,6 +23,7 @@ from config import (
     LR_MIN,
     WEIGHT_DECAY,
     NB_EPOCHS,
+    EARLY_STOPPING_PATIENCE_AFTER_MIN_LR,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,17 +50,13 @@ def train(run_manager, load_checkpoint_path=None):
         logger.info(f"  {name}: {module}")
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer=optimizer,
-        T_0=5,
-        T_mult=2,
-        eta_min=LR_MIN,
+        mode="min",
+        factor=0.5,
+        patience=10,
+        min_lr=LR_MIN,
     )
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-    #     optimizer=optimizer,
-    #     T_max=NB_EPOCHS,
-    #     eta_min=LR_MIN,
-    # )
 
     dataset_path = large_dataset_path
 
@@ -91,6 +88,10 @@ def train(run_manager, load_checkpoint_path=None):
         "batch_size": BATCH_SIZE,
         "learning_rate": LR,
         "learning_rate_min": LR_MIN,
+        "scheduler": "ReduceLROnPlateau",
+        "scheduler_factor": 0.5,
+        "scheduler_patience": 10,
+        "early_stopping_patience_after_min_lr": EARLY_STOPPING_PATIENCE_AFTER_MIN_LR,
         "weight_decay": WEIGHT_DECAY,
         "epochs": NB_EPOCHS,
     }
@@ -119,6 +120,7 @@ def train(run_manager, load_checkpoint_path=None):
     val_energy_matched_maes = []
     best_val_f1 = 0.0
     best_val_f1_epoch = 0
+    min_lr_reached_epoch = None
 
     if load_checkpoint_path is not None:
         (
@@ -136,6 +138,7 @@ def train(run_manager, load_checkpoint_path=None):
             val_energy_matched_recall,
             val_energy_matched_f1s,
             val_energy_matched_maes,
+            min_lr_reached_epoch,
         ) = load_checkpoint(model, optimizer, scheduler, load_checkpoint_path)
         start_epoch = last_completed_epoch + 1
         logger.info(f"Loaded checkpoint from {load_checkpoint_path}, starting from epoch {start_epoch+1}")
@@ -151,7 +154,6 @@ def train(run_manager, load_checkpoint_path=None):
             train_loader,
             criterion,
             optimizer,
-            scheduler,
             learning_strategy,
             device,
         )
@@ -189,7 +191,17 @@ def train(run_manager, load_checkpoint_path=None):
         val_energy_matched_f1s.append(val_energy_matched_f1)
         val_energy_matched_maes.append(val_energy_matched_mae)
 
+        scheduler.step(val_loss)
+
         aim_epoch = epoch + 1
+        lr_at_min = all(
+            param_group["lr"] <= LR_MIN + 1e-12
+            for param_group in optimizer.param_groups
+        )
+        if lr_at_min and min_lr_reached_epoch is None:
+            min_lr_reached_epoch = aim_epoch
+            logger.info(f"Minimum LR {LR_MIN:.2e} reached at epoch {aim_epoch}.")
+
         track_metric(
             "loss",
             train_loss,
@@ -330,6 +342,7 @@ def train(run_manager, load_checkpoint_path=None):
                 val_energy_matched_recall=val_energy_matched_recall,
                 val_energy_matched_f1s=val_energy_matched_f1s,
                 val_energy_matched_maes=val_energy_matched_maes,
+                min_lr_reached_epoch=min_lr_reached_epoch,
             )
         else:
             save_checkpoint(
@@ -351,7 +364,25 @@ def train(run_manager, load_checkpoint_path=None):
                 val_energy_matched_recall=val_energy_matched_recall,
                 val_energy_matched_f1s=val_energy_matched_f1s,
                 val_energy_matched_maes=val_energy_matched_maes,
+                min_lr_reached_epoch=min_lr_reached_epoch,
             )
+
+        epochs_since_best_after_min_lr = (
+            aim_epoch - max(best_val_f1_epoch, min_lr_reached_epoch or aim_epoch)
+        )
+        if (
+            lr_at_min
+            and epochs_since_best_after_min_lr >= EARLY_STOPPING_PATIENCE_AFTER_MIN_LR
+        ):
+            logger.info(
+                "Early stopping triggered after %s epochs without Val F1 improvement "
+                "at minimum LR %.2e. Best Val F1: %.4f at epoch %s.",
+                epochs_since_best_after_min_lr,
+                LR_MIN,
+                best_val_f1,
+                best_val_f1_epoch,
+            )
+            break
     logger.info(
         f"Training completed. Best Val F1: {best_val_f1:.4f} "
         f"at epoch {best_val_f1_epoch}"
