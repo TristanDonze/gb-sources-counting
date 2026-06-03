@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 import subprocess
 
@@ -21,6 +22,13 @@ class RunManager:
 
         self._reproductibility_dir = os.path.join(self._run_dir, "reproductibility")
         os.makedirs(self._reproductibility_dir, exist_ok=True)
+
+        self.model_path = Path("src./model.py")
+        with open(self.model_path, "r") as f:
+            model_code = f.read()
+            
+        with open(os.path.join(self._checkpoint_dir, "model_structure.py"), "w") as f:
+            f.write(model_code)
 
         self.save_aim_hash()
 
