@@ -23,7 +23,7 @@ class RunManager:
         self._reproductibility_dir = os.path.join(self._run_dir, "reproductibility")
         os.makedirs(self._reproductibility_dir, exist_ok=True)
 
-        self.model_path = Path("src./model.py")
+        self.model_path = Path("src/model.py")
         with open(self.model_path, "r") as f:
             model_code = f.read()
             
