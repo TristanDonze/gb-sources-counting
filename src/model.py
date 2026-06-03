@@ -156,13 +156,11 @@ class CardinalityEstimator(nn.Module):
         self.dim_model = dim_model
 
         self.conv_encoder = nn.Sequential(OrderedDict([
-            ('conv_1', nn.Conv1d(in_channels=input_channels, out_channels=32, kernel_size=8, stride=2, padding=3)),
+            ('conv_1', nn.Conv1d(in_channels=input_channels, out_channels=32, kernel_size=7, stride=1, padding="same")),
             ('gelu_1', nn.GELU()),
-            ('conv_2', nn.Conv1d(in_channels=32, out_channels=64, kernel_size=8, stride=2, padding=3)),
+            ('conv_2', nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, stride=1, padding="same")),
             ('gelu_2', nn.GELU()),
-            ('conv_3', nn.Conv1d(in_channels=64, out_channels=128, kernel_size=5, stride=1, padding=3)),
-            ('gelu_3', nn.GELU()),
-            ('conv_4', nn.Conv1d(in_channels=128, out_channels=dim_model, kernel_size=3, stride=1, padding=1)),
+            ('conv_3', nn.Conv1d(in_channels=64, out_channels=dim_model, kernel_size=3, stride=2, padding="same")),
         ]))
 
         self.pos_encoder = PosEnc(dim_model=dim_model, max_len=10_000)
