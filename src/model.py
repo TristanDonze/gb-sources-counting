@@ -149,7 +149,7 @@ class PoolingConcat(nn.Module):
 #     print(out.shape)
 
 class CardinalityEstimator(nn.Module):
-    def __init__(self, learning_strategy="mse", max_K=10, input_channels=4, dim_model=256):
+    def __init__(self, learning_strategy="mse", max_K=10, input_channels=4, dim_model=128):
         super(CardinalityEstimator, self).__init__()
 
         self.max_K = max_K
@@ -160,7 +160,7 @@ class CardinalityEstimator(nn.Module):
             ('gelu_1', nn.GELU()),
             ('conv_2', nn.Conv1d(in_channels=32, out_channels=64, kernel_size=5, stride=1, padding="same")),
             ('gelu_2', nn.GELU()),
-            ('conv_3', nn.Conv1d(in_channels=64, out_channels=dim_model, kernel_size=3, stride=2, padding="same")),
+            ('conv_3', nn.Conv1d(in_channels=64, out_channels=dim_model, kernel_size=3, stride=2, padding=1)),
         ]))
 
         self.pos_encoder = PosEnc(dim_model=dim_model, max_len=10_000)
