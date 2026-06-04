@@ -18,6 +18,7 @@ from config import (
     TRAIN_SIZE,
     MAX_SAMPLES_TRAIN,
     MAX_SAMPLES_VAL,
+    SPLIT_STRATEGY,
     SPLIT_SEED,
     SEED_TRAIN,
     SEED_VAL,
@@ -76,6 +77,7 @@ def train(run_manager, load_checkpoint_path=None):
         deterministic_train=False,
         deterministic_val=True,
         split_seed=SPLIT_SEED,
+        split_strategy=SPLIT_STRATEGY,
         seed_train=SEED_TRAIN,
         seed_val=SEED_VAL,
     )
