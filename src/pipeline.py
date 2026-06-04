@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from src.model import CardinalityEstimator
-from src.dataset import create_train_val_datasets
+from src.new_dataset import create_train_val_datasets
 
 from src.training import train_one_epoch
 from src.validation import evaluate
@@ -14,8 +14,13 @@ from config import (
     small_dataset_path,
     medium_dataset_path,
     large_dataset_path,
+    huge_dataset_path,
     TRAIN_SIZE,
+    MAX_SAMPLES_TRAIN,
+    MAX_SAMPLES_VAL,
     SPLIT_SEED,
+    SEED_TRAIN,
+    SEED_VAL,
     learning_strategy,
     MAX_K,
     BATCH_SIZE,
@@ -58,21 +63,21 @@ def train(run_manager, load_checkpoint_path=None):
         min_lr=LR_MIN,
     )
 
-    dataset_path = large_dataset_path
+    dataset_path = huge_dataset_path
 
     train_dataset, val_dataset, val_energy_matched_dataset = create_train_val_datasets(
         dataset_path,
         train_size=TRAIN_SIZE,
         max_K=MAX_K,
-        max_samples_train=None,
-        max_samples_val=None,
+        max_samples_train=MAX_SAMPLES_TRAIN,
+        max_samples_val=MAX_SAMPLES_VAL,
         noise_train=True,
         noise_val=True,
         deterministic_train=False,
         deterministic_val=True,
         split_seed=SPLIT_SEED,
-        seed_train=42,
-        seed_val=0,
+        seed_train=SEED_TRAIN,
+        seed_val=SEED_VAL,
     )
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, num_workers=0, shuffle=False)
