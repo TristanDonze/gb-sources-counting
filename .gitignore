@@ -231,6 +231,7 @@ AGENTS.md
 
 # logs
 logs/
+evaluation_results/
 
 # TO DO
 TODO.MD
