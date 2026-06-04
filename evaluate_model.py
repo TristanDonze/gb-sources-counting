@@ -10,16 +10,25 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
+import h5py
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, mean_absolute_error
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from config import MAX_K, learning_strategy, huge_dataset_path
+from config import (
+    MAX_K,
+    SPLIT_SEED,
+    SPLIT_STRATEGY,
+    TRAIN_SIZE,
+    learning_strategy,
+    huge_dataset_path,
+)
+from src.dataset import split_dataset_indices, snr_based_split_dataset_indices
 from src.val_dataset import HomogeneousSNRValidationDataset, SNRGapValidationDataset
 
 
 DATASET_PATH = huge_dataset_path
-RUN_PATH = Path("runs/run_20260601_171349/checkpoints")
+RUN_PATH = Path("runs/run_20260604_161246/checkpoints")
 MODEL_STRUCTURE_PATH = RUN_PATH / "model_structure.py"
 CHECKPOINT_PATH = RUN_PATH / "best_checkpoint.pth"
 
@@ -35,6 +44,28 @@ NOISE = True
 SAVE_SAMPLE_DETAILS = True
 
 OUTPUT_DIR = Path("evaluation_results") / f"snr_validation_{datetime.now():%Y%m%d_%H%M%S}"
+VAL_INDICES = None
+
+
+def get_validation_indices():
+    with h5py.File(DATASET_PATH, "r") as f:
+        total_waveforms = f["waveforms"].shape[0]
+        if SPLIT_STRATEGY == "random":
+            _, val_indices = split_dataset_indices(
+                total_waveforms=total_waveforms,
+                train_size=TRAIN_SIZE,
+                split_seed=SPLIT_SEED,
+            )
+        elif SPLIT_STRATEGY == "snr":
+            _, val_indices = snr_based_split_dataset_indices(
+                snr_values=f["params"]["snr"][:],
+                train_size=TRAIN_SIZE,
+                split_seed=SPLIT_SEED,
+            )
+        else:
+            raise ValueError("SPLIT_STRATEGY must be either 'random' or 'snr'")
+
+    return val_indices
 
 
 def load_model(device):
@@ -64,6 +95,7 @@ def make_dataset(kind, target, seed):
         noise=NOISE,
         seed=seed,
         return_params=True,
+        indices=VAL_INDICES,
     )
 
     if kind == "snr_gap":
@@ -229,9 +261,11 @@ def save_summary(rows):
 
 
 def main():
+    global VAL_INDICES
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = load_model(device)
+    VAL_INDICES = get_validation_indices()
 
     metadata = {
         "dataset_path": str(DATASET_PATH),
@@ -241,6 +275,10 @@ def main():
         "max_K": MAX_K,
         "max_samples": MAX_SAMPLES,
         "batch_size": BATCH_SIZE,
+        "train_size": TRAIN_SIZE,
+        "split_seed": SPLIT_SEED,
+        "split_strategy": SPLIT_STRATEGY,
+        "val_waveforms": int(len(VAL_INDICES)),
         "seeds": SEEDS,
         "snr_gap_targets": SNR_GAP_TARGETS,
         "homogeneous_targets": HOMOGENEOUS_TARGETS,
