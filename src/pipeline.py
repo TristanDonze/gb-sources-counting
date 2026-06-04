@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from src.model import CardinalityEstimator
-from src.new_dataset import create_train_val_datasets
+from src.dataset import create_train_val_datasets
 
 from src.training import train_one_epoch
 from src.validation import evaluate

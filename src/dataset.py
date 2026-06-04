@@ -4,63 +4,64 @@ import numpy as np
 from torch.utils.data import Dataset
 
 from src.logger import setup_logging
+
 setup_logging()
 
 logger = logging.getLogger("Dataset")
 
+
 class GalacticBinariesDataset(Dataset):
     def __init__(
         self,
-        dataset_path,
-        max_K: int = 10,
-        max_samples: int | None = 10_000,
+        waveforms,
+        params_dict,
         indices: np.ndarray | None = None,
+        max_K: int = 10,
         noise: bool = True,
-        energy_matched=False,
-        target_energy=22000.0,
+        max_samples: int | None = None,
         return_params: bool = False,
         deterministic: bool = False,
         seed: int | None = None,
     ):
-        self.dataset_path = dataset_path
+        self.waveforms = waveforms
+        self.attr_names = list(params_dict.keys())
+        for key, value in params_dict.items():
+            setattr(self, key, value)
+
+        self.indices = self._normalize_indices(indices, len(waveforms))
+        self.nb_selected_waveforms = len(self.indices)
+        self.total_waveforms = self.nb_selected_waveforms
+        self.length = (
+            self.nb_selected_waveforms
+            if max_samples is None
+            else min(max_samples, self.nb_selected_waveforms)
+        )
+
         self.max_K = max_K
-        self.max_samples = max_samples
-        self.indices = indices
         self.noise = noise
-        self.deterministic = deterministic
-        self.energy_matched = energy_matched
-        self.target_energy = target_energy
+        self.max_samples = max_samples
         self.return_params = return_params
+        self.deterministic = deterministic
         self.seed = seed
         self.rng = np.random.default_rng(seed)
 
-        with h5py.File(self.dataset_path, 'r') as f:
-            total_waveforms = f['waveforms'].shape[0] # 2M+
-            logger.info(f"Total waveforms in dataset: {total_waveforms}")
-            selection = self._normalize_indices(indices, total_waveforms) # 
-            self.total_waveforms = self._selection_length(selection, total_waveforms)
-            logger.info(f"Selected {self.total_waveforms} waveforms for use in the dataset")
-            self.length = self.total_waveforms if max_samples is None else min(max_samples, self.total_waveforms)
-            logger.info(f"Dataset length set to {self.length} samples (max_samples={max_samples})")
-            logger.info(f"Loading {self.total_waveforms} waveforms in memory...")
-            self.waveforms = f['waveforms'][selection]  # Load selected waveforms into memory
-            logger.info(f"Waveforms loaded with shape {self.waveforms.shape}")
+        if self.max_K > self.nb_selected_waveforms:
+            raise ValueError(
+                f"max_K={self.max_K} cannot be greater than "
+                f"selected waveforms={self.nb_selected_waveforms}"
+            )
 
-            self.attr_names = list(f['params'].keys())
-            logger.info(f"Loading parameters {', '.join(self.attr_names)} in memory...")
-            for key, value in f['params'].items():
-                setattr(self, key, value[selection])  # Load selected parameters into memory as attributes
-            logger.info("Parameters loaded successfully")
-
-        if self.max_K > self.total_waveforms:
-            raise ValueError(f"max_K={self.max_K} cannot be greater than selected waveforms={self.total_waveforms}")
-        
-        self.fixed_mixtures = self._build_fixed_mixtures() if self.deterministic else None
+        if self.deterministic:
+            logger.info("Building fixed mixtures for deterministic sampling...")
+            self.fixed_mixtures = self._build_fixed_mixtures()
+            logger.info("Fixed mixtures built successfully.")
+        else:
+            self.fixed_mixtures = None
 
     @staticmethod
     def _normalize_indices(indices, total_waveforms):
         if indices is None:
-            return slice(None)
+            return np.arange(total_waveforms, dtype=np.int64)
 
         indices = np.asarray(indices, dtype=np.int64)
         if indices.ndim != 1:
@@ -74,25 +75,30 @@ class GalacticBinariesDataset(Dataset):
 
         return np.sort(indices)
 
-    @staticmethod
-    def _selection_length(selection, total_waveforms):
-        if isinstance(selection, slice):
-            start, stop, step = selection.indices(total_waveforms)
-            return len(range(start, stop, step))
-        return len(selection)
-                
     def __len__(self):
-        return self.length # self.max_samples
+        return self.length
+
+    def _sample_k(self, idx):
+        return int(self.rng.integers(1, self.max_K + 1))
+
+    def _sample_indices_for_k(self, k, idx):
+        return self.rng.choice(self.nb_selected_waveforms, size=k, replace=False)
+
+    def _sample_mixture(self, idx):
+        k = self._sample_k(idx)
+        sampled_indices = self._sample_indices_for_k(k, idx)
+        return sampled_indices, k
 
     def _build_fixed_mixtures(self):
         fixed_mixtures = []
-        for _ in range(self.length):
-            k = self.rng.integers(1, self.max_K + 1)
-            sampled_indices = self.rng.choice(self.total_waveforms, size=k, replace=False)
-            target = k
+        for idx in range(self.length):
+            sampled_indices, target = self._sample_mixture(idx)
             fixed_mixtures.append((sampled_indices, target))
         return fixed_mixtures
-    
+
+    def _transform_waveform(self, summed_waveforms, sampled_indices, target, idx):
+        return summed_waveforms
+
     def _get_noise_rng(self, idx):
         if self.deterministic:
             seed = 0 if self.seed is None else self.seed
@@ -100,7 +106,12 @@ class GalacticBinariesDataset(Dataset):
             return np.random.default_rng(seed_seq)
 
         return self.rng
-    
+
+    def _add_noise(self, summed_waveforms, idx):
+        noise_rng = self._get_noise_rng(idx)
+        noise = noise_rng.normal(0, 1, size=summed_waveforms.shape)
+        return summed_waveforms + noise
+
     def _build_padded_params(self, sampled_indices, k):
         params = {}
         for attr in self.attr_names:
@@ -116,107 +127,241 @@ class GalacticBinariesDataset(Dataset):
     def __getitem__(self, idx):
         if self.deterministic:
             sampled_indices, target = self.fixed_mixtures[idx]
-            k = target
         else:
-            k = self.rng.integers(1, self.max_K + 1)
-            sampled_indices = self.rng.choice(self.total_waveforms, size=k, replace=False)
-            target = k
+            sampled_indices, target = self._sample_mixture(idx)
 
-        waveforms = self.waveforms[sampled_indices]
+        waveform_indices = self.indices[sampled_indices]
+        waveforms = self.waveforms[waveform_indices]
         summed_waveforms = waveforms.sum(axis=0)
-
-        if self.energy_matched:
-            energy = np.sum(summed_waveforms ** 2)
-            if energy > 0:
-                scaling_factor = np.sqrt(self.target_energy / (energy + 1e-12))
-                summed_waveforms *= scaling_factor
+        summed_waveforms = self._transform_waveform(
+            summed_waveforms,
+            waveform_indices,
+            target,
+            idx,
+        )
 
         if self.noise:
-            noise_rng = self._get_noise_rng(idx)
-            noise = noise_rng.normal(0, 1, size=summed_waveforms.shape)
-            summed_waveforms += noise
+            summed_waveforms = self._add_noise(summed_waveforms, idx)
 
         if self.return_params:
-            params = self._build_padded_params(sampled_indices, k)
+            params = self._build_padded_params(waveform_indices, target)
             return summed_waveforms, target, params
 
         return summed_waveforms, target
-    
-def create_train_val_datasets(
-    dataset_path,
-    train_size=0.8,
-    max_K=10,
-    max_samples_train=None,
-    max_samples_val=None,
-    noise_train=True,
-    noise_val=True,
-    deterministic_train=False,
-    deterministic_val=True,
-    energy_matched_train=False,
-    target_energy_train=22000.0,
-    target_energy_val=22000.0,
-    return_params=False,
-    split_seed=42,
-    seed_train=42,
-    seed_val=0,
-):
+
+
+class TrainDataset(GalacticBinariesDataset):
+    def __init__(
+        self,
+        waveforms,
+        params_dict,
+        max_K: int = 10,
+        noise: bool = True,
+        max_samples: int | None = None,
+        indices: np.ndarray | None = None,
+        return_params: bool = False,
+        deterministic: bool = False,
+        seed: int | None = None,
+    ):
+        super().__init__(
+            waveforms=waveforms,
+            params_dict=params_dict,
+            max_K=max_K,
+            noise=noise,
+            max_samples=max_samples,
+            indices=indices,
+            return_params=return_params,
+            deterministic=deterministic,
+            seed=seed,
+        )
+
+
+class ValidationDataset(GalacticBinariesDataset):
+    def __init__(
+        self,
+        waveforms,
+        params_dict,
+        max_K: int = 10,
+        noise: bool = True,
+        max_samples: int | None = None,
+        indices: np.ndarray | None = None,
+        return_params: bool = False,
+        deterministic: bool = True,
+        seed: int | None = None,
+    ):
+        super().__init__(
+            waveforms=waveforms,
+            params_dict=params_dict,
+            max_K=max_K,
+            noise=noise,
+            max_samples=max_samples,
+            indices=indices,
+            return_params=return_params,
+            deterministic=deterministic,
+            seed=seed,
+        )
+
+
+class EnergyMatchingValidationDataset(GalacticBinariesDataset):
+    def __init__(
+        self,
+        waveforms,
+        params_dict,
+        max_K: int = 10,
+        noise: bool = True,
+        max_samples: int | None = None,
+        indices: np.ndarray | None = None,
+        return_params: bool = False,
+        deterministic: bool = True,
+        seed: int | None = None,
+        target_energy: float = 22000.0,
+    ):
+        self.target_energy = target_energy
+        super().__init__(
+            waveforms=waveforms,
+            params_dict=params_dict,
+            max_K=max_K,
+            noise=noise,
+            max_samples=max_samples,
+            indices=indices,
+            return_params=return_params,
+            deterministic=deterministic,
+            seed=seed,
+        )
+
+    def _transform_waveform(self, summed_waveforms, sampled_indices, target, idx):
+        energy = np.sum(summed_waveforms ** 2)
+        if energy > 0:
+            scaling_factor = np.sqrt(self.target_energy / (energy + 1e-12))
+            summed_waveforms = summed_waveforms * scaling_factor
+        return summed_waveforms
+
+
+def split_dataset_indices(total_waveforms, train_size=0.8, split_seed=42):
     if not 0.0 < train_size < 1.0:
         raise ValueError("train_size must be between 0 and 1")
-
-    with h5py.File(dataset_path, 'r') as f:
-        total_waveforms = f['waveforms'].shape[0]
 
     split_index = int(round(train_size * total_waveforms))
     indices = np.arange(total_waveforms, dtype=np.int64)
     rng = np.random.default_rng(split_seed)
     rng.shuffle(indices)
-    train_indices = indices[:split_index]
-    val_indices = indices[split_index:]
+    return indices[:split_index], indices[split_index:]
 
-    train_dataset = GalacticBinariesDataset(
-        dataset_path=dataset_path,
+
+def snr_based_split_dataset_indices(
+    snr_values,
+    train_size=0.8,
+    split_seed=42,
+    bin_width=1.0,
+):
+    snr_values = np.asarray(snr_values, dtype=np.float32)
+
+    rng = np.random.default_rng(split_seed)
+    bin_start = np.floor(float(np.min(snr_values)))
+    bin_ids = np.floor((snr_values - bin_start) / bin_width).astype(np.int64)
+
+    train_chunks = []
+    val_chunks = []
+    for bin_id in np.unique(bin_ids):
+        bin_indices = np.flatnonzero(bin_ids == bin_id).astype(np.int64)
+        rng.shuffle(bin_indices)
+
+        split_index = int(round(train_size * len(bin_indices)))
+        train_chunks.append(bin_indices[:split_index])
+        val_chunks.append(bin_indices[split_index:])
+
+    train_indices = np.concatenate(train_chunks) if train_chunks else np.empty(0, dtype=np.int64)
+    val_indices = np.concatenate(val_chunks) if val_chunks else np.empty(0, dtype=np.int64)
+    rng.shuffle(train_indices)
+    rng.shuffle(val_indices)
+    
+    logger.info(f"SNR-based split built with {len(train_chunks)} bins of width {bin_width:.3g}: {len(train_indices)} train / {len(val_indices)} val")
+    return train_indices, val_indices
+
+
+def create_train_val_datasets(
+    dataset_path : str,
+    train_size : float = 0.8,
+    max_K : int = 10,
+    max_samples_train : int | None = None,
+    max_samples_val : int | None = None,
+    noise_train : bool = True,
+    noise_val : bool = True,
+    deterministic_train : bool = False,
+    deterministic_val : bool = True,
+    target_energy_val : float = 22000.0,
+    return_params : bool = False,
+    split_seed : int = 42,
+    split_strategy : str = "snr",
+    snr_bin_width : float = 1.0,
+    seed_train : int = 42,
+    seed_val : int = 0,
+):
+    with h5py.File(dataset_path, "r") as f:
+        logger.info(f"Loading waveforms from {dataset_path}...")
+        total_waveforms = f["waveforms"].shape[0]
+        logger.info(f"Total number of waveforms in the dataset: {total_waveforms}")
+        logger.info("Starting to load waveforms in memory...")
+        waveforms = f["waveforms"][:]
+        logger.info(f"Waveforms loaded with shape {waveforms.shape}")
+
+        params_dict = {}
+        logger.info(f"Loading parameters in memory...")
+        for key, value in f["params"].items():
+            params_dict[key] = value[:]
+        logger.info("Parameters loaded successfully")
+
+    if split_strategy == "random":
+        train_indices, val_indices = split_dataset_indices(
+            total_waveforms=total_waveforms,
+            train_size=train_size,
+            split_seed=split_seed,
+        )
+    elif split_strategy == "snr":
+        train_indices, val_indices = snr_based_split_dataset_indices(
+            snr_values=params_dict["snr"],
+            train_size=train_size,
+            split_seed=split_seed,
+            bin_width=snr_bin_width,
+        )
+    else:
+        raise ValueError("split_strategy must be either 'random' or 'snr'")
+
+    train_dataset = TrainDataset(
+        waveforms=waveforms,
+        params_dict=params_dict,
         max_K=max_K,
         max_samples=max_samples_train,
         indices=train_indices,
         noise=noise_train,
         deterministic=deterministic_train,
-        energy_matched=energy_matched_train,
-        target_energy=target_energy_train,
         return_params=return_params,
-        seed=seed_train
+        seed=seed_train,
     )
 
-    val_dataset = GalacticBinariesDataset(
-        dataset_path=dataset_path,
+    val_dataset = ValidationDataset(
+        waveforms=waveforms,
+        params_dict=params_dict,
         max_K=max_K,
         max_samples=max_samples_val,
         indices=val_indices,
         noise=noise_val,
         deterministic=deterministic_val,
-        energy_matched=False,
-        target_energy=target_energy_val,
         return_params=return_params,
-        seed=seed_val
+        seed=seed_val,
     )
 
-    val_energy_matched_dataset = GalacticBinariesDataset(
-        dataset_path=dataset_path,
+    val_energy_matched_dataset = EnergyMatchingValidationDataset(
+        waveforms=waveforms,
+        params_dict=params_dict,
         max_K=max_K,
         max_samples=max_samples_val,
         indices=val_indices,
         noise=noise_val,
         deterministic=deterministic_val,
-        energy_matched=True,
         target_energy=target_energy_val,
         return_params=return_params,
-        seed=seed_val
+        seed=seed_val,
     )
+
     return train_dataset, val_dataset, val_energy_matched_dataset
-
-
-
-
-if __name__ == "__main__":
-    from config import dataset_path
-    train_dataset, val_dataset, val_energy_matched_dataset = create_train_val_datasets(dataset_path, max_K=10)
-    
