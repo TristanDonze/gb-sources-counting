@@ -13,10 +13,11 @@ huge_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset
 # medium_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_500K_5.0e-24_2.0e-22_filtering_True_5_150_difficulty_1/dataset.hdf5")
 # large_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_3M_5.0e-24_2.0e-22_filtering_True_5_150_difficulty_1/dataset.hdf5")
 
-TRAIN_SIZE = 0.7
-MAX_SAMPLES_TRAIN = 1_000_000
-MAX_SAMPLES_VAL = 200_000
+TRAIN_SIZE = 0.5
+MAX_SAMPLES_TRAIN = None
+MAX_SAMPLES_VAL = 300_000
 
+SPLIT_STRATEGY = "snr" # "random" or "snr"
 SEED_TRAIN = 42
 SEED_VAL = 0
 SPLIT_SEED = 2027
