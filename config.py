@@ -6,23 +6,27 @@ from pathlib import Path
 small_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_200K_2.0e-23_1.0e-22_filtering_True_10_100_difficulty_1/dataset.hdf5")
 medium_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_500K_2.0e-23_1.0e-22_filtering_True_10_100_difficulty_1/dataset.hdf5")
 large_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_3M_2.0e-23_1.0e-22_filtering_True_10_100_difficulty_1/dataset.hdf5")
+huge_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_8M_2.0e-23_1.5e-22_filtering_True_10_100_difficulty_1/dataset.hdf5")
 
 # SNR : 5 - 150
 # small_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_200K_5.0e-24_2.0e-22_filtering_True_5_150_difficulty_1/dataset.hdf5")
 # medium_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_500K_5.0e-24_2.0e-22_filtering_True_5_150_difficulty_1/dataset.hdf5")
 # large_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_3M_5.0e-24_2.0e-22_filtering_True_5_150_difficulty_1/dataset.hdf5")
 
-TRAIN_SIZE = 0.9
-SPLIT_SEED = 42
+TRAIN_SIZE = 0.7
+MAX_SAMPLES_TRAIN = 1_000_000
+MAX_SAMPLES_VAL = 200_000
+
+SEED_TRAIN = 42
+SEED_VAL = 0
+SPLIT_SEED = 2027
 
 # Training Hyperparameters 
 
 learning_strategy = "ordinal" # "mse", "cross_entropy" or "ordinal"
-
 MAX_K = 10
 
 BATCH_SIZE = 256
-
 LR = 1e-3
 LR_MIN = 1e-6
 WEIGHT_DECAY = 1e-2
