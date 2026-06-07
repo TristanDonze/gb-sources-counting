@@ -25,11 +25,12 @@ from config import (
     learning_strategy,
     MAX_K,
     BATCH_SIZE,
-    LR,
-    LR_MIN,
     WEIGHT_DECAY,
     NB_EPOCHS,
-    EARLY_STOPPING_PATIENCE_AFTER_MIN_LR,
+    LR,
+    LR_MIN,
+    FACTOR,
+    PATIENCE,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,8 +60,8 @@ def train(run_manager, load_checkpoint_path=None):
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer=optimizer,
         mode="min",
-        factor=0.5,
-        patience=10,
+        factor=FACTOR,
+        patience=PATIENCE,
         min_lr=LR_MIN,
     )
 
@@ -96,9 +97,8 @@ def train(run_manager, load_checkpoint_path=None):
         "learning_rate": LR,
         "learning_rate_min": LR_MIN,
         "scheduler": "ReduceLROnPlateau",
-        "scheduler_factor": 0.5,
-        "scheduler_patience": 10,
-        "early_stopping_patience_after_min_lr": EARLY_STOPPING_PATIENCE_AFTER_MIN_LR,
+        "scheduler_factor": FACTOR,
+        "scheduler_patience": PATIENCE,
         "weight_decay": WEIGHT_DECAY,
         "epochs": NB_EPOCHS,
     }
@@ -374,22 +374,6 @@ def train(run_manager, load_checkpoint_path=None):
                 min_lr_reached_epoch=min_lr_reached_epoch,
             )
 
-        epochs_since_best_after_min_lr = (
-            aim_epoch - max(best_val_f1_epoch, min_lr_reached_epoch or aim_epoch)
-        )
-        if (
-            lr_at_min
-            and epochs_since_best_after_min_lr >= EARLY_STOPPING_PATIENCE_AFTER_MIN_LR
-        ):
-            logger.info(
-                "Early stopping triggered after %s epochs without Val F1 improvement "
-                "at minimum LR %.2e. Best Val F1: %.4f at epoch %s.",
-                epochs_since_best_after_min_lr,
-                LR_MIN,
-                best_val_f1,
-                best_val_f1_epoch,
-            )
-            break
     logger.info(
         f"Training completed. Best Val F1: {best_val_f1:.4f} "
         f"at epoch {best_val_f1_epoch}"
