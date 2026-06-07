@@ -24,12 +24,15 @@ SPLIT_SEED = 2027
 
 # Training Hyperparameters 
 
-learning_strategy = "mse" # "mse", "cross_entropy" or "ordinal"
+learning_strategy = "ordinal" # "mse", "cross_entropy" or "ordinal"
 MAX_K = 10
-
 BATCH_SIZE = 512
-LR = 1e-4
-LR_MIN = 1e-7
-WEIGHT_DECAY = 1e-2
+WEIGHT_DECAY = 1e-3
 NB_EPOCHS = 500
-EARLY_STOPPING_PATIENCE_AFTER_MIN_LR = 50
+
+# Scheduler : 
+
+LR = 1e-4
+LR_MIN = 5e-7
+FACTOR = 0.5
+PATIENCE = 5
