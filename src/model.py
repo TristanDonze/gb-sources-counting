@@ -76,7 +76,7 @@ class CardinalityEstimator(nn.Module):
         self.dim_model = dim_model
 
         self.conv_encoder = nn.Sequential(OrderedDict([ 
-            ('stem_conv', nn.Conv1d(in_channels=input_channels, out_channels=32, kernel_size=5, stride=1, padding=2)),
+            ('stem_conv', nn.Conv1d(in_channels=input_channels, out_channels=32, kernel_size=7, stride=1, padding=2)),
             ('stem_norm', nn.BatchNorm1d(32)),
             ('stem_gelu', nn.GELU()),
             
@@ -86,7 +86,7 @@ class CardinalityEstimator(nn.Module):
             ('downsample_norm', nn.BatchNorm1d(dim_model)),
             ('downsample_gelu', nn.GELU()),
             
-            ('res_block_2', ResidualConvBlock(channels=dim_model, kernel_size=3, dilation=1, dropout=0.1)),
+            ('res_block_2', ResidualConvBlock(channels=dim_model, kernel_size=5, dilation=1, dropout=0.1)),
         ]))
 
         self.pos_encoder = PosEnc(dim_model=dim_model, max_len=10_000)
@@ -112,7 +112,7 @@ class CardinalityEstimator(nn.Module):
         self.classifier = nn.Sequential(OrderedDict([
             ('fc_1', nn.Linear(in_features=dim_model * 3, out_features=dim_model * 2)),
             ('gelu_1', nn.GELU()),
-            ('dropout', nn.Dropout(0.1)) # Ajout d'un dropout final anti-overfitting
+            ('dropout', nn.Dropout(0.1)),
         ]))
 
         if learning_strategy == "mse":
