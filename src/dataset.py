@@ -157,6 +157,9 @@ class TrainDataset(GalacticBinariesDataset):
         params_dict,
         max_K: int = 10,
         noise: bool = True,
+        random_global_scale: bool = False,
+        scale_min: float = 0.5,
+        scale_max: float = 2.0,
         max_samples: int | None = None,
         indices: np.ndarray | None = None,
         return_params: bool = False,
@@ -174,6 +177,20 @@ class TrainDataset(GalacticBinariesDataset):
             deterministic=deterministic,
             seed=seed,
         )
+
+        self.random_global_scale = random_global_scale
+        self.scale_min = scale_min
+        self.scale_max = scale_max
+    
+    def _transform_waveform(self, summed_waveforms, sampled_indices, target, idx):
+        if self.random_global_scale:
+            log_scale = self.rng.uniform(
+                np.log(self.scale_min),
+                np.log(self.scale_max),
+            )
+            scale = np.exp(log_scale)
+            summed_waveforms = summed_waveforms * scale
+        return summed_waveforms
 
 
 class ValidationDataset(GalacticBinariesDataset):
@@ -287,6 +304,7 @@ def create_train_val_datasets(
     max_samples_val : int | None = None,
     noise_train : bool = True,
     noise_val : bool = True,
+    random_global_scale_train : bool = False,
     deterministic_train : bool = False,
     deterministic_val : bool = True,
     target_energy_val : float = 22000.0,
@@ -334,6 +352,7 @@ def create_train_val_datasets(
         max_samples=max_samples_train,
         indices=train_indices,
         noise=noise_train,
+        random_global_scale=random_global_scale_train,
         deterministic=deterministic_train,
         return_params=return_params,
         seed=seed_train,
