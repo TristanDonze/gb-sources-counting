@@ -75,6 +75,7 @@ def train(run_manager, load_checkpoint_path=None):
         max_samples_val=MAX_SAMPLES_VAL,
         noise_train=True,
         noise_val=True,
+        random_global_scale_train=True,
         deterministic_train=False,
         deterministic_val=True,
         split_seed=SPLIT_SEED,
