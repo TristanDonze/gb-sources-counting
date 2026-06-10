@@ -32,7 +32,7 @@ NB_EPOCHS = 500
 
 # Scheduler : 
 
-LR = 1e-4
-LR_MIN = 5e-7
+LR = 2e-4
+LR_MIN = 1e-6
 FACTOR = 0.5
 PATIENCE = 5
