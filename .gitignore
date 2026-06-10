@@ -235,3 +235,6 @@ evaluation_results/
 
 # TO DO
 TODO.MD
+
+# csv
+*.csv
