@@ -31,9 +31,121 @@ from config import (
     LR_MIN,
     FACTOR,
     PATIENCE,
+    LAMBDA_MSE,
+    LAMBDA_CE,
 )
 
 logger = logging.getLogger(__name__)
+
+MSE_CE_PRIMARY_PREDICTOR = "ensemble"
+METRIC_NAME_MAP = {
+    "acc": "accuracy",
+}
+
+
+def _unpack_eval_result(eval_result, learning_strategy):
+    if learning_strategy != "mse+ce":
+        loss, acc, recall_score, f1, mae = eval_result
+        return {
+            "loss": loss,
+            "loss_mse": None,
+            "loss_ce": None,
+            "primary": {
+                "acc": acc,
+                "recall": recall_score,
+                "f1": f1,
+                "mae": mae,
+            },
+            "predictors": None,
+        }
+
+    primary = eval_result["predictors"][MSE_CE_PRIMARY_PREDICTOR]
+    return {
+        "loss": eval_result["loss"],
+        "loss_mse": eval_result["loss_mse"],
+        "loss_ce": eval_result["loss_ce"],
+        "primary": primary,
+        "predictors": eval_result["predictors"],
+    }
+
+
+def _track_eval_metrics(metrics, *, step, epoch, split):
+    track_metric(
+        "loss",
+        metrics["loss"],
+        step=step,
+        epoch=epoch,
+        split=split,
+        granularity="epoch",
+    )
+
+    if metrics["loss_mse"] is not None:
+        track_metric(
+            "loss_mse",
+            metrics["loss_mse"],
+            step=step,
+            epoch=epoch,
+            split=split,
+            granularity="epoch",
+        )
+        track_metric(
+            "loss_ce",
+            metrics["loss_ce"],
+            step=step,
+            epoch=epoch,
+            split=split,
+            granularity="epoch",
+        )
+
+    if metrics["predictors"] is None:
+        primary = metrics["primary"]
+        for name, value in primary.items():
+            track_metric(
+                METRIC_NAME_MAP.get(name, name),
+                value,
+                step=step,
+                epoch=epoch,
+                split=split,
+                granularity="epoch",
+            )
+        return
+
+    for predictor, predictor_metrics in metrics["predictors"].items():
+        for name, value in predictor_metrics.items():
+            track_metric(
+                METRIC_NAME_MAP.get(name, name),
+                value,
+                step=step,
+                epoch=epoch,
+                split=split,
+                granularity="epoch",
+                predictor=predictor,
+            )
+
+
+def _format_eval_metrics(label, metrics):
+    if metrics["predictors"] is None:
+        primary = metrics["primary"]
+        return (
+            f"{label} Loss: {metrics['loss']:.4f} "
+            f"- {label} Acc: {primary['acc']:.4f} "
+            f"- {label} Recall: {primary['recall']:.4f} "
+            f"- {label} F1: {primary['f1']:.4f} "
+            f"- {label} MAE: {primary['mae']:.4f}"
+        )
+
+    parts = [
+        f"{label} Loss: {metrics['loss']:.4f}",
+        f"{label} MSE Loss: {metrics['loss_mse']:.4f}",
+        f"{label} CE Loss: {metrics['loss_ce']:.4f}",
+    ]
+    for predictor, predictor_metrics in metrics["predictors"].items():
+        parts.append(
+            f"{predictor} Acc: {predictor_metrics['acc']:.4f} "
+            f"F1: {predictor_metrics['f1']:.4f} "
+            f"MAE: {predictor_metrics['mae']:.4f}"
+        )
+    return " - ".join(parts)
 
 
 def train(run_manager, load_checkpoint_path=None):
@@ -46,6 +158,8 @@ def train(run_manager, load_checkpoint_path=None):
         criterion = torch.nn.CrossEntropyLoss()
     elif learning_strategy == "ordinal":
         criterion = torch.nn.BCEWithLogitsLoss()
+    elif learning_strategy == "mse+ce":
+        criterion = torch.nn.MSELoss(), torch.nn.CrossEntropyLoss()
     else:
         raise ValueError(f"Unknown learning strategy: {learning_strategy}")
     logger.info(f"Learning strategy: {learning_strategy}")
@@ -102,6 +216,14 @@ def train(run_manager, load_checkpoint_path=None):
         "scheduler_patience": PATIENCE,
         "weight_decay": WEIGHT_DECAY,
         "epochs": NB_EPOCHS,
+        "learning_strategy": learning_strategy,
+        "lambda_mse": LAMBDA_MSE if learning_strategy == "mse+ce" else None,
+        "lambda_ce": LAMBDA_CE if learning_strategy == "mse+ce" else None,
+        "primary_predictor": (
+            MSE_CE_PRIMARY_PREDICTOR
+            if learning_strategy == "mse+ce"
+            else learning_strategy
+        ),
     }
     aim_run["dataset"] = {
         "dataset_path": str(dataset_path),
@@ -165,7 +287,7 @@ def train(run_manager, load_checkpoint_path=None):
             learning_strategy,
             device,
         )
-        val_loss, val_acc, val_recall_score, val_f1, mae = evaluate(
+        val_result = evaluate(
             model,
             MAX_K,
             val_loader,
@@ -173,13 +295,9 @@ def train(run_manager, load_checkpoint_path=None):
             learning_strategy,
             device,
         )
-        (
-            val_energy_matched_loss,
-            val_energy_matched_acc,
-            val_energy_matched_recall_score,
-            val_energy_matched_f1,
-            val_energy_matched_mae,
-        ) = evaluate(
+        val_metrics = _unpack_eval_result(val_result, learning_strategy)
+
+        val_energy_matched_result = evaluate(
             model,
             MAX_K,
             val_energy_matched_loader,
@@ -187,6 +305,22 @@ def train(run_manager, load_checkpoint_path=None):
             learning_strategy,
             device,
         )
+        val_energy_matched_metrics = _unpack_eval_result(
+            val_energy_matched_result,
+            learning_strategy,
+        )
+
+        val_loss = val_metrics["loss"]
+        val_acc = val_metrics["primary"]["acc"]
+        val_recall_score = val_metrics["primary"]["recall"]
+        val_f1 = val_metrics["primary"]["f1"]
+        mae = val_metrics["primary"]["mae"]
+        val_energy_matched_loss = val_energy_matched_metrics["loss"]
+        val_energy_matched_acc = val_energy_matched_metrics["primary"]["acc"]
+        val_energy_matched_recall_score = val_energy_matched_metrics["primary"]["recall"]
+        val_energy_matched_f1 = val_energy_matched_metrics["primary"]["f1"]
+        val_energy_matched_mae = val_energy_matched_metrics["primary"]["mae"]
+
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         val_accs.append(val_acc)
@@ -218,85 +352,17 @@ def train(run_manager, load_checkpoint_path=None):
             split="train",
             granularity="epoch",
         )
-        track_metric(
-            "loss",
-            val_loss,
+        _track_eval_metrics(
+            val_metrics,
             step=aim_epoch,
             epoch=aim_epoch,
             split="val",
-            granularity="epoch",
         )
-        track_metric(
-            "accuracy",
-            val_acc,
-            step=aim_epoch,
-            epoch=aim_epoch,
-            split="val",
-            granularity="epoch",
-        )
-        track_metric(
-            "recall",
-            val_recall_score,
-            step=aim_epoch,
-            epoch=aim_epoch,
-            split="val",
-            granularity="epoch",
-        )
-        track_metric(
-            "f1",
-            val_f1,
-            step=aim_epoch,
-            epoch=aim_epoch,
-            split="val",
-            granularity="epoch",
-        )
-        track_metric(
-            "mae",
-            mae,
-            step=aim_epoch,
-            epoch=aim_epoch,
-            split="val",
-            granularity="epoch",
-        )
-        track_metric(
-            "loss",
-            val_energy_matched_loss,
+        _track_eval_metrics(
+            val_energy_matched_metrics,
             step=aim_epoch,
             epoch=aim_epoch,
             split="val_energy_matched",
-            granularity="epoch",
-        )
-        track_metric(
-            "accuracy",
-            val_energy_matched_acc,
-            step=aim_epoch,
-            epoch=aim_epoch,
-            split="val_energy_matched",
-            granularity="epoch",
-        )
-        track_metric(
-            "recall",
-            val_energy_matched_recall_score,
-            step=aim_epoch,
-            epoch=aim_epoch,
-            split="val_energy_matched",
-            granularity="epoch",
-        )
-        track_metric(
-            "f1",
-            val_energy_matched_f1,
-            step=aim_epoch,
-            epoch=aim_epoch,
-            split="val_energy_matched",
-            granularity="epoch",
-        )
-        track_metric(
-            "mae",
-            val_energy_matched_mae,
-            step=aim_epoch,
-            epoch=aim_epoch,
-            split="val_energy_matched",
-            granularity="epoch",
         )
         track_metric(
             "learning_rate",
@@ -308,15 +374,11 @@ def train(run_manager, load_checkpoint_path=None):
 
         logger.info(
             f"Epoch {epoch+1}/{NB_EPOCHS} - Train Loss: {train_loss:.4f} "
-            f"- Val Loss: {val_loss:.4f} - Val Acc: {val_acc:.4f} "
-            f"- Val Recall: {val_recall_score:.4f} - Val F1: {val_f1:.4f} - Val MAE: {mae:.4f}"
+            f"- {_format_eval_metrics('Val', val_metrics)}"
         )
         logger.info(
-            f"Epoch {epoch+1}/{NB_EPOCHS} - Val Energy-Matched Loss: {val_energy_matched_loss:.4f} "
-            f"- Val Energy-Matched Acc: {val_energy_matched_acc:.4f} "
-            f"- Val Energy-Matched Recall: {val_energy_matched_recall_score:.4f} "
-            f"- Val Energy-Matched F1: {val_energy_matched_f1:.4f} "
-            f"- Val Energy-Matched MAE: {val_energy_matched_mae:.4f}"
+            f"Epoch {epoch+1}/{NB_EPOCHS} - "
+            f"{_format_eval_metrics('Val Energy-Matched', val_energy_matched_metrics)}"
         )
 
         # Save checkpoint if current epoch has the best validation F1 score
@@ -330,6 +392,11 @@ def train(run_manager, load_checkpoint_path=None):
                 epoch=aim_epoch,
                 split="val",
                 granularity="epoch",
+                predictor=(
+                    MSE_CE_PRIMARY_PREDICTOR
+                    if learning_strategy == "mse+ce"
+                    else None
+                ),
             )
             save_checkpoint(
                 model,

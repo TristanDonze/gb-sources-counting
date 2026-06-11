@@ -64,6 +64,15 @@ class PoolingConcat(nn.Module):
 
         return torch.cat([mean_pool, max_pool, attn_pool], dim=-1)
 
+class DualHeadOutput(nn.Module):
+    def __init__(self, in_features: int, max_K: int):
+        super().__init__()
+        self.mse_head = nn.Linear(in_features=in_features, out_features=1)
+        self.ce_head = nn.Linear(in_features=in_features, out_features=max_K)
+    
+    def forward(self, x):
+        return self.mse_head(x), self.ce_head(x)
+
 class CardinalityEstimator(nn.Module):
     def __init__(self, 
                  learning_strategy: str = "mse", 
@@ -121,6 +130,8 @@ class CardinalityEstimator(nn.Module):
             self.classifier.add_module('output', nn.Linear(in_features=2*dim_model, out_features=self.max_K))
         elif learning_strategy == "ordinal":
             self.classifier.add_module('output', nn.Linear(in_features=2*dim_model, out_features=self.max_K - 1))
+        elif learning_strategy == "mse+ce":
+            self.classifier.add_module('output', DualHeadOutput(in_features=2*dim_model, max_K=self.max_K))
         else:
             raise ValueError(f"Unknown learning strategy: {learning_strategy}")
 
@@ -136,10 +147,16 @@ class CardinalityEstimator(nn.Module):
         return out
         
 if __name__ == "__main__":
-    x = torch.randn(32, 4, 128)
+    x = torch.randn(16, 4, 128)
     print(f"Input shape: {x.shape}")
-    CE = CardinalityEstimator(learning_strategy="ordinal", max_K=10, input_channels=4)
+    learning_strategy = "mse+ce"
+    CE = CardinalityEstimator(learning_strategy=learning_strategy, max_K=10, input_channels=4)
     nb_params = sum(p.numel() for p in CE.parameters())
     print(f"Number of parameters: {nb_params}")
-    out = CE(x)
-    print(f"Output shape: {out.shape}")
+    if learning_strategy == "mse+ce":
+        out_mse, out_ce = CE(x)
+        print(f"MSE output shape: {out_mse.shape}")
+        print(f"CE output shape: {out_ce.shape}")
+    else:
+        out = CE(x)
+        print(f"Output shape: {out.shape}")
