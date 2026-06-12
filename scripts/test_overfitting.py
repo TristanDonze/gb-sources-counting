@@ -1,9 +1,8 @@
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-
-from pathlib import Path
 
 dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_500K_uniform_SNR_10_100/dataset.hdf5")
 
@@ -139,6 +138,7 @@ def train():
             criterion,
             optimizer,
             learning_strategy,
+            False,
             device,
         )
         train_loss_evaluation, train_acc, train_recall_score, train_f1, train_mae = evaluate(

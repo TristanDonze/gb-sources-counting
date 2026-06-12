@@ -24,7 +24,10 @@ SPLIT_SEED = 2027
 
 # Training Hyperparameters 
 
-learning_strategy = "mse+ce" # "mse", "cross_entropy", "mse+ce" "ordinal"
+learning_strategy = "mse" # "mse", "cross_entropy", "mse+ce" "ordinal"
+WEIGHT_BY_K = True
+MSE_K_WEIGHT_ALPHA = 1.0
+
 LAMBDA_MSE = 1.0
 LAMBDA_CE = 0.05
 

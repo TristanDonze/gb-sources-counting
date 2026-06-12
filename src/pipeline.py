@@ -33,6 +33,8 @@ from config import (
     PATIENCE,
     LAMBDA_MSE,
     LAMBDA_CE,
+    WEIGHT_BY_K,
+    MSE_K_WEIGHT_ALPHA,
 )
 
 logger = logging.getLogger(__name__)
@@ -127,12 +129,14 @@ def _format_eval_metrics(label, metrics):
     if metrics["predictors"] is None:
         primary = metrics["primary"]
         return (
-            f"{label} Loss: {metrics['loss']:.4f} "
-            f"- {label} Acc: {primary['acc']:.4f} "
-            f"- {label} Recall: {primary['recall']:.4f} "
-            f"- {label} F1: {primary['f1']:.4f} "
-            f"- {label} MAE: {primary['mae']:.4f}"
+            f"{label}\n"
+            f"  - Loss: {metrics['loss']:.4f}\n"
+            # f"Acc: {primary['acc']:.4f} "
+            # f"Recall: {primary['recall']:.4f} "
+            f"  - F1: {primary['f1']:.4f}\n"
+            f"  - MAE: {primary['mae']:.4f}\n"
         )
+        
 
     parts = [
         f"{label} Loss: {metrics['loss']:.4f}",
@@ -217,6 +221,8 @@ def train(run_manager, load_checkpoint_path=None):
         "weight_decay": WEIGHT_DECAY,
         "epochs": NB_EPOCHS,
         "learning_strategy": learning_strategy,
+        "weight_by_K": WEIGHT_BY_K if learning_strategy == "mse" else None,
+        "mse_k_weight_alpha": MSE_K_WEIGHT_ALPHA if learning_strategy == "mse" else None,
         "lambda_mse": LAMBDA_MSE if learning_strategy == "mse+ce" else None,
         "lambda_ce": LAMBDA_CE if learning_strategy == "mse+ce" else None,
         "primary_predictor": (
@@ -285,6 +291,7 @@ def train(run_manager, load_checkpoint_path=None):
             criterion,
             optimizer,
             learning_strategy,
+            WEIGHT_BY_K,
             device,
         )
         val_result = evaluate(
@@ -373,11 +380,8 @@ def train(run_manager, load_checkpoint_path=None):
         )
 
         logger.info(
-            f"Epoch {epoch+1}/{NB_EPOCHS} - Train Loss: {train_loss:.4f} "
-            f"- {_format_eval_metrics('Val', val_metrics)}"
-        )
-        logger.info(
-            f"Epoch {epoch+1}/{NB_EPOCHS} - "
+            f"Epoch {epoch+1}/{NB_EPOCHS} - Train Loss: {train_loss:.4f}\n"
+            f"{_format_eval_metrics('Val', val_metrics)}\n"
             f"{_format_eval_metrics('Val Energy-Matched', val_energy_matched_metrics)}"
         )
 

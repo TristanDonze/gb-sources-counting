@@ -1,5 +1,5 @@
 import torch
-from config import LAMBDA_MSE, LAMBDA_CE
+from config import LAMBDA_MSE, LAMBDA_CE, MSE_K_WEIGHT_ALPHA
 
 def train_one_epoch(
     model,
@@ -8,6 +8,7 @@ def train_one_epoch(
     criterion,
     optimizer,
     learning_strategy,
+    weight_by_K,
     device,
 ):
     model.train()
@@ -20,7 +21,12 @@ def train_one_epoch(
             labels = torch.as_tensor(target, dtype=torch.float32, device=device).unsqueeze(1)
             y = labels / max_k
             out = torch.sigmoid(logits)
-            loss = criterion(out, y)
+            if weight_by_K:
+                per_sample_loss = (out - y).pow(2).squeeze(1)
+                weights = 1.0 + MSE_K_WEIGHT_ALPHA * (labels.squeeze(1) - 1.0) / (max_k - 1.0)
+                loss = (weights * per_sample_loss).sum() / weights.sum()
+            else:
+                loss = criterion(out, y)
         elif learning_strategy == "cross_entropy":
             labels = torch.as_tensor(target, dtype=torch.long, device=device)
             y = labels - 1
