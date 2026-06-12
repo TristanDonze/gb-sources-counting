@@ -344,6 +344,7 @@ def create_train_val_datasets(
         )
     else:
         raise ValueError("split_strategy must be either 'random' or 'snr'")
+    
 
     train_dataset = TrainDataset(
         waveforms=waveforms,
@@ -356,7 +357,7 @@ def create_train_val_datasets(
         deterministic=deterministic_train,
         return_params=return_params,
         seed=seed_train,
-    )
+    ) if len(train_indices) > 0 else None
 
     val_dataset = ValidationDataset(
         waveforms=waveforms,
