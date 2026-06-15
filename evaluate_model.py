@@ -28,13 +28,13 @@ from src.val_dataset import HomogeneousSNRValidationDataset, SNRGapValidationDat
 
 
 DATASET_PATH = huge_dataset_path
-RUN_PATH = Path("runs/run_20260604_161246/checkpoints")
+RUN_PATH = Path("runs/run_20260611_145257/checkpoints")
 MODEL_STRUCTURE_PATH = RUN_PATH / "model_structure.py"
 CHECKPOINT_PATH = RUN_PATH / "best_checkpoint.pth"
 
 SNR_GAP_TARGETS = [10, 20, 30, 40, 50, 60, 70, 80]
 HOMOGENEOUS_TARGETS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 98]
-SEEDS = [42]
+SEEDS = [84029459]
 
 MAX_SAMPLES = 200_000
 BATCH_SIZE = 512
