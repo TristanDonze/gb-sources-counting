@@ -9,6 +9,8 @@ setup_logging()
 
 logger = logging.getLogger("Dataset")
 
+FREQUENCY_SUPPORT_REL_THRESHOLD = 1e-2
+
 
 class GalacticBinariesDataset(Dataset):
     def __init__(
@@ -122,7 +124,47 @@ class GalacticBinariesDataset(Dataset):
             params[attr] = padded
 
         params["source_mask"] = np.arange(self.max_K) < k
+        params.update(self._build_frequency_support_params(sampled_indices, k))
         return params
+
+    def _build_frequency_support_params(self, sampled_indices, k):
+        source_waveforms = np.asarray(self.waveforms[sampled_indices])
+        source_waveforms = source_waveforms.astype(np.float32, copy=False)
+
+        if source_waveforms.ndim == 2:
+            freq_energy = source_waveforms ** 2
+        else:
+            channel_axes = tuple(range(1, source_waveforms.ndim - 1))
+            freq_energy = np.sum(source_waveforms ** 2, axis=channel_axes)
+
+        starts = np.full(self.max_K, -1, dtype=np.int16)
+        stops = np.full(self.max_K, -1, dtype=np.int16)
+        peaks = np.full(self.max_K, -1, dtype=np.int16)
+        widths = np.zeros(self.max_K, dtype=np.int16)
+
+        for source_idx in range(k):
+            energy = freq_energy[source_idx]
+            max_energy = float(np.max(energy))
+            if max_energy <= 0.0:
+                continue
+
+            threshold = max_energy * FREQUENCY_SUPPORT_REL_THRESHOLD
+            active_bins = np.flatnonzero(energy >= threshold)
+            if len(active_bins) == 0:
+                peak = int(np.argmax(energy))
+                active_bins = np.array([peak], dtype=np.int64)
+
+            starts[source_idx] = int(active_bins[0])
+            stops[source_idx] = int(active_bins[-1]) + 1
+            peaks[source_idx] = int(np.argmax(energy))
+            widths[source_idx] = int(stops[source_idx] - starts[source_idx])
+
+        return {
+            "freq_bin_start": starts,
+            "freq_bin_stop": stops,
+            "freq_bin_peak": peaks,
+            "freq_support_width": widths,
+        }
 
     def __getitem__(self, idx):
         if self.deterministic:
