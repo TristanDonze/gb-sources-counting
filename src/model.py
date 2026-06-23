@@ -19,8 +19,8 @@ class ResidualConvBlock(nn.Module):
             ('norm_1', nn.BatchNorm1d(channels)),
             ('gelu_1', nn.GELU()),
             ('dropout', nn.Dropout(dropout)),
-            ('conv_2', nn.Conv1d(in_channels=channels, out_channels=channels, kernel_size=kernel_size, padding=padding, dilation=dilation)),
-            ('norm_2', nn.BatchNorm1d(channels)),
+            # ('conv_2', nn.Conv1d(in_channels=channels, out_channels=channels, kernel_size=kernel_size, padding=padding, dilation=dilation)),
+            # ('norm_2', nn.BatchNorm1d(channels)),
         ]))
                 
         self.activation = nn.GELU()
@@ -78,24 +78,28 @@ class CardinalityEstimator(nn.Module):
                  learning_strategy: str = "mse", 
                  max_K: int = 10, 
                  input_channels: int = 4,
-                 dim_model: int = 128):
+                 dim_model: int = 196):
         super(CardinalityEstimator, self).__init__()
 
         self.max_K = max_K
         self.dim_model = dim_model
 
-        self.conv_encoder = nn.Sequential(OrderedDict([ 
-            ('stem_conv', nn.Conv1d(in_channels=input_channels, out_channels=32, kernel_size=7, stride=1, padding=2)),
-            ('stem_norm', nn.BatchNorm1d(32)),
-            ('stem_gelu', nn.GELU()),
-            
-            ('res_block_1', ResidualConvBlock(channels=32, kernel_size=5, dilation=2, dropout=0.1)),
-            
-            ('downsample', nn.Conv1d(in_channels=32, out_channels=dim_model, kernel_size=5, stride=2, padding=2)),
-            ('downsample_norm', nn.BatchNorm1d(dim_model)),
-            ('downsample_gelu', nn.GELU()),
-            
-            ('res_block_2', ResidualConvBlock(channels=dim_model, kernel_size=5, dilation=1, dropout=0.1)),
+        self.conv_encoder = nn.Sequential(OrderedDict([
+            ('conv_1', nn.Conv1d(input_channels, 32, kernel_size=7, stride=1, padding=3)),
+            ('norm_1', nn.BatchNorm1d(32)),
+            ('gelu_1', nn.GELU()),
+
+            ('conv_2', nn.Conv1d(32, 64, kernel_size=5, stride=2, padding=2)),
+            ('norm_2', nn.BatchNorm1d(64)),
+            ('gelu_2', nn.GELU()),
+
+            ('conv_3', nn.Conv1d(64, 128, kernel_size=5, stride=1, padding=2)),
+            ('norm_3', nn.BatchNorm1d(128)),
+            ('gelu_3', nn.GELU()),
+
+            ('conv_4', nn.Conv1d(128, dim_model, kernel_size=3, stride=1, padding=1)),
+            ('norm_4', nn.BatchNorm1d(dim_model)),
+            ('gelu_4', nn.GELU()),
         ]))
 
         self.pos_encoder = PosEnc(dim_model=dim_model, max_len=10_000)
@@ -149,7 +153,7 @@ class CardinalityEstimator(nn.Module):
 if __name__ == "__main__":
     x = torch.randn(16, 4, 128)
     print(f"Input shape: {x.shape}")
-    learning_strategy = "mse+ce"
+    learning_strategy = "mse"
     CE = CardinalityEstimator(learning_strategy=learning_strategy, max_K=10, input_channels=4)
     nb_params = sum(p.numel() for p in CE.parameters())
     print(f"Number of parameters: {nb_params}")
