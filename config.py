@@ -24,12 +24,15 @@ SPLIT_SEED = 2027
 
 # Training Hyperparameters 
 
-learning_strategy = "mse" # "mse", "cross_entropy", "mse+ce" "ordinal"
-WEIGHT_BY_K = True
+learning_strategy = "mse+ce" # "mse", "cross_entropy", "mse+ce" "ordinal"
+WEIGHT_BY_K = False
 MSE_K_WEIGHT_ALPHA = 1.0
 
 LAMBDA_MSE = 1.0
-LAMBDA_CE = 0.05
+LAMBDA_CE = 0.3
+
+LAMBDA_PREDICTION_MSE = 0.7
+LAMBDA_PREDICTION_CE = 0.3
 
 MAX_K = 10
 BATCH_SIZE = 512
@@ -41,4 +44,4 @@ NB_EPOCHS = 500
 LR = 2e-4
 LR_MIN = 1e-6
 FACTOR = 0.5
-PATIENCE = 5
+PATIENCE = 10
