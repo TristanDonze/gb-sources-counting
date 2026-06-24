@@ -1,6 +1,6 @@
 import torch
 from sklearn.metrics import recall_score, f1_score
-from config import LAMBDA_MSE, LAMBDA_CE
+from config import LAMBDA_MSE, LAMBDA_CE, LAMBDA_PREDICTION_MSE, LAMBDA_PREDICTION_CE
 
 
 def evaluate(model, max_k, dataloader, criterion, learning_strategy, device):
@@ -81,7 +81,7 @@ def evaluate(model, max_k, dataloader, criterion, learning_strategy, device):
                 class_values = torch.arange(1, max_k + 1, device=device).float()
                 ce_score = (ce_probs * class_values.unsqueeze(0)).sum(dim=1)
 
-                final_score = 0.9 * mse_score + 0.1 * ce_score
+                final_score = LAMBDA_PREDICTION_MSE * mse_score + LAMBDA_PREDICTION_CE * ce_score
                 pred_combined = torch.round(final_score).long().clamp(1, max_k)
 
             else:
