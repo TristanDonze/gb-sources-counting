@@ -4,30 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 
-class ResidualConvBlock(nn.Module):
-    def __init__(self, 
-                 channels : int, 
-                 kernel_size : int = 5, 
-                 dilation : int = 1, 
-                 dropout : int = 0.05):
-        super().__init__()
-
-        padding = (kernel_size // 2) * dilation
-
-        self.block = nn.Sequential(OrderedDict([
-            ('conv_1', nn.Conv1d(in_channels=channels, out_channels=channels, kernel_size=kernel_size, padding=padding, dilation=dilation)),
-            ('norm_1', nn.BatchNorm1d(channels)),
-            ('gelu_1', nn.GELU()),
-            ('dropout', nn.Dropout(dropout)),
-            # ('conv_2', nn.Conv1d(in_channels=channels, out_channels=channels, kernel_size=kernel_size, padding=padding, dilation=dilation)),
-            # ('norm_2', nn.BatchNorm1d(channels)),
-        ]))
-                
-        self.activation = nn.GELU()
-    
-    def forward(self, x):
-        return self.activation(x + self.block(x))
-
 class PosEnc(nn.Module):
     def __init__(self, 
                  dim_model : int = 256, 
