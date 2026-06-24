@@ -131,25 +131,23 @@ def _format_eval_metrics(label, metrics):
         return (
             f"{label}\n"
             f"  - Loss: {metrics['loss']:.4f}\n"
-            # f"Acc: {primary['acc']:.4f} "
-            # f"Recall: {primary['recall']:.4f} "
             f"  - F1: {primary['f1']:.4f}\n"
             f"  - MAE: {primary['mae']:.4f}\n"
         )
         
 
     parts = [
-        f"{label} Loss: {metrics['loss']:.4f}",
-        f"{label} MSE Loss: {metrics['loss_mse']:.4f}",
-        f"{label} CE Loss: {metrics['loss_ce']:.4f}",
+        f"{label} :\n",
+        f"  - Loss: {metrics['loss']:.4f}\n",
+        f"  - MSE Loss: {metrics['loss_mse']:.4f}\n",
+        f"  - CE Loss: {metrics['loss_ce']:.4f}\n",
     ]
     for predictor, predictor_metrics in metrics["predictors"].items():
         parts.append(
-            f"{predictor} Acc: {predictor_metrics['acc']:.4f} "
-            f"F1: {predictor_metrics['f1']:.4f} "
-            f"MAE: {predictor_metrics['mae']:.4f}"
+            f"  - F1: {predictor_metrics['f1']:.4f}\n"
+            f"  - MAE: {predictor_metrics['mae']:.4f}\n"
         )
-    return " - ".join(parts)
+    return "".join(parts)
 
 
 def train(run_manager, load_checkpoint_path=None):
