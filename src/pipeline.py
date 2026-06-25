@@ -144,7 +144,7 @@ def _format_eval_metrics(label, metrics):
     ]
     for predictor, predictor_metrics in metrics["predictors"].items():
         parts.append(
-            f"Predictor: {predictor}\n"
+            f" Predictor: {predictor}\n"
             f"  - F1: {predictor_metrics['f1']:.4f}\n"
             f"  - MAE: {predictor_metrics['mae']:.4f}\n"
         )
