@@ -1,5 +1,5 @@
 import torch
-from config import LAMBDA_MSE, LAMBDA_CE, MSE_K_WEIGHT_ALPHA
+from config import LAMBDA_MSE, LAMBDA_CE, LAMBDA_ORDINAL, MSE_K_WEIGHT_ALPHA
 
 def train_one_epoch(
     model,
@@ -51,6 +51,29 @@ def train_one_epoch(
             loss_ce = criterion[1](logits_ce, y_ce)
 
             loss = LAMBDA_MSE * loss_mse + LAMBDA_CE * loss_ce
+        elif learning_strategy == "mse+ce+or":
+            logits_mse, logits_ce, logits_ordinal = logits
+
+            labels = torch.as_tensor(target, dtype=torch.long, device=device)
+
+            y_mse = labels.float().unsqueeze(1) / max_k
+            out_mse = torch.sigmoid(logits_mse)
+
+            y_ce = labels - 1
+
+            thresholds = torch.arange(1, max_k, device=device)
+            y_ordinal = (labels.unsqueeze(1) > thresholds.unsqueeze(0)).float()
+
+            # criterion[0] is MSE, criterion[1] is CE, criterion[2] is Ordinal
+            loss_mse = criterion[0](out_mse, y_mse)
+            loss_ce = criterion[1](logits_ce, y_ce)
+            loss_ordinal = criterion[2](logits_ordinal, y_ordinal)
+
+            loss = (
+                LAMBDA_MSE * loss_mse
+                + LAMBDA_CE * loss_ce
+                + LAMBDA_ORDINAL * loss_ordinal
+            )
 
         else:
             raise ValueError(f"Invalid learning strategy: {learning_strategy}")
