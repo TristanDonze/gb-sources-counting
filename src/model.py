@@ -49,6 +49,17 @@ class DualHeadOutput(nn.Module):
     def forward(self, x):
         return self.mse_head(x), self.ce_head(x)
 
+
+class TripleHeadOutput(nn.Module):
+    def __init__(self, in_features: int, max_K: int):
+        super().__init__()
+        self.mse_head = nn.Linear(in_features=in_features, out_features=1)
+        self.ce_head = nn.Linear(in_features=in_features, out_features=max_K)
+        self.ordinal_head = nn.Linear(in_features=in_features, out_features=max_K - 1)
+
+    def forward(self, x):
+        return self.mse_head(x), self.ce_head(x), self.ordinal_head(x)
+
 class CardinalityEstimator(nn.Module):
     def __init__(self, 
                  learning_strategy: str = "mse", 
@@ -112,6 +123,8 @@ class CardinalityEstimator(nn.Module):
             self.classifier.add_module('output', nn.Linear(in_features=2*dim_model, out_features=self.max_K - 1))
         elif learning_strategy == "mse+ce":
             self.classifier.add_module('output', DualHeadOutput(in_features=2*dim_model, max_K=self.max_K))
+        elif learning_strategy == "mse+ce+or":
+            self.classifier.add_module('output', TripleHeadOutput(in_features=2*dim_model, max_K=self.max_K))
         else:
             raise ValueError(f"Unknown learning strategy: {learning_strategy}")
 
@@ -129,7 +142,7 @@ class CardinalityEstimator(nn.Module):
 if __name__ == "__main__":
     x = torch.randn(16, 4, 128)
     print(f"Input shape: {x.shape}")
-    learning_strategy = "mse"
+    learning_strategy = "mse+ce+or"
     CE = CardinalityEstimator(learning_strategy=learning_strategy, max_K=10, input_channels=4)
     nb_params = sum(p.numel() for p in CE.parameters())
     print(f"Number of parameters: {nb_params}")
