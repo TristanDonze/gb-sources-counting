@@ -15,14 +15,19 @@ from config import (
     medium_dataset_path,
     large_dataset_path,
     huge_dataset_path,
+
     TRAIN_SIZE,
     MAX_SAMPLES_TRAIN,
     MAX_SAMPLES_VAL,
     SPLIT_STRATEGY,
+
     SPLIT_SEED,
     SEED_TRAIN,
     SEED_VAL,
+
     learning_strategy,
+    HYBRID_STRATEGIES,
+    PRIMARY_PREDICTOR,
     MAX_K,
     BATCH_SIZE,
     WEIGHT_DECAY,
@@ -31,27 +36,31 @@ from config import (
     LR_MIN,
     FACTOR,
     PATIENCE,
+
+
     LAMBDA_MSE,
     LAMBDA_CE,
+    LAMBDA_ORDINAL,
+
+    LAMBDA_PREDICTION_MSE,
+    LAMBDA_PREDICTION_CE,
+    LAMBDA_PREDICTION_ORDINAL,
+
     WEIGHT_BY_K,
     MSE_K_WEIGHT_ALPHA,
 )
 
 logger = logging.getLogger(__name__)
 
-MSE_CE_PRIMARY_PREDICTOR = "ensemble"
-METRIC_NAME_MAP = {
-    "acc": "accuracy",
-}
-
 
 def _unpack_eval_result(eval_result, learning_strategy):
-    if learning_strategy != "mse+ce":
+    if learning_strategy not in HYBRID_STRATEGIES:
         loss, acc, recall_score, f1, mae = eval_result
         return {
             "loss": loss,
             "loss_mse": None,
             "loss_ce": None,
+            "loss_ordinal": None,
             "primary": {
                 "acc": acc,
                 "recall": recall_score,
@@ -61,11 +70,12 @@ def _unpack_eval_result(eval_result, learning_strategy):
             "predictors": None,
         }
 
-    primary = eval_result["predictors"][MSE_CE_PRIMARY_PREDICTOR]
+    primary = eval_result["predictors"][PRIMARY_PREDICTOR]
     return {
         "loss": eval_result["loss"],
         "loss_mse": eval_result["loss_mse"],
         "loss_ce": eval_result["loss_ce"],
+        "loss_ordinal": eval_result.get("loss_ordinal"),
         "primary": primary,
         "predictors": eval_result["predictors"],
     }
@@ -90,9 +100,19 @@ def _track_eval_metrics(metrics, *, step, epoch, split):
             split=split,
             granularity="epoch",
         )
+    if metrics["loss_ce"] is not None:
         track_metric(
             "loss_ce",
             metrics["loss_ce"],
+            step=step,
+            epoch=epoch,
+            split=split,
+            granularity="epoch",
+        )
+    if metrics["loss_ordinal"] is not None:
+        track_metric(
+            "loss_ordinal",
+            metrics["loss_ordinal"],
             step=step,
             epoch=epoch,
             split=split,
@@ -103,7 +123,7 @@ def _track_eval_metrics(metrics, *, step, epoch, split):
         primary = metrics["primary"]
         for name, value in primary.items():
             track_metric(
-                METRIC_NAME_MAP.get(name, name),
+                name,
                 value,
                 step=step,
                 epoch=epoch,
@@ -115,7 +135,7 @@ def _track_eval_metrics(metrics, *, step, epoch, split):
     for predictor, predictor_metrics in metrics["predictors"].items():
         for name, value in predictor_metrics.items():
             track_metric(
-                METRIC_NAME_MAP.get(name, name),
+                name,
                 value,
                 step=step,
                 epoch=epoch,
@@ -142,6 +162,8 @@ def _format_eval_metrics(label, metrics):
         f"  - MSE Loss: {metrics['loss_mse']:.4f}\n",
         f"  - CE Loss: {metrics['loss_ce']:.4f}\n",
     ]
+    if metrics["loss_ordinal"] is not None:
+        parts.append(f"  - Ordinal Loss: {metrics['loss_ordinal']:.4f}\n")
     for predictor, predictor_metrics in metrics["predictors"].items():
         parts.append(
             f" Predictor: {predictor}\n"
@@ -149,7 +171,6 @@ def _format_eval_metrics(label, metrics):
             f"  - MAE: {predictor_metrics['mae']:.4f}\n"
         )
     return "".join(parts)
-
 
 def train(run_manager, load_checkpoint_path=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -162,7 +183,16 @@ def train(run_manager, load_checkpoint_path=None):
     elif learning_strategy == "ordinal":
         criterion = torch.nn.BCEWithLogitsLoss()
     elif learning_strategy == "mse+ce":
-        criterion = torch.nn.MSELoss(), torch.nn.CrossEntropyLoss()
+        criterion = (
+            torch.nn.MSELoss(), 
+            torch.nn.CrossEntropyLoss()
+        )
+    elif learning_strategy == "mse+ce+or":
+        criterion = (
+            torch.nn.MSELoss(),
+            torch.nn.CrossEntropyLoss(),
+            torch.nn.BCEWithLogitsLoss(),
+        )
     else:
         raise ValueError(f"Unknown learning strategy: {learning_strategy}")
     logger.info(f"Learning strategy: {learning_strategy}")
@@ -221,12 +251,15 @@ def train(run_manager, load_checkpoint_path=None):
         "epochs": NB_EPOCHS,
         "learning_strategy": learning_strategy,
         "weight_by_K": WEIGHT_BY_K if learning_strategy == "mse" else None,
-        "mse_k_weight_alpha": MSE_K_WEIGHT_ALPHA if learning_strategy == "mse" else None,
-        "lambda_mse": LAMBDA_MSE if learning_strategy == "mse+ce" else None,
-        "lambda_ce": LAMBDA_CE if learning_strategy == "mse+ce" else None,
+        "lambda_mse": LAMBDA_MSE if learning_strategy in HYBRID_STRATEGIES else None,
+        "lambda_ce": LAMBDA_CE if learning_strategy in HYBRID_STRATEGIES else None,
+        "lambda_ordinal": LAMBDA_ORDINAL if learning_strategy == "mse+ce+or" else None,
+        "lambda_prediction_mse": LAMBDA_PREDICTION_MSE if learning_strategy in HYBRID_STRATEGIES else None,
+        "lambda_prediction_ce": LAMBDA_PREDICTION_CE if learning_strategy in HYBRID_STRATEGIES else None,
+        "lambda_prediction_ordinal": LAMBDA_PREDICTION_ORDINAL if learning_strategy == "mse+ce+or" else None,
         "primary_predictor": (
-            MSE_CE_PRIMARY_PREDICTOR
-            if learning_strategy == "mse+ce"
+            PRIMARY_PREDICTOR
+            if learning_strategy in HYBRID_STRATEGIES
             else learning_strategy
         ),
     }
@@ -290,7 +323,6 @@ def train(run_manager, load_checkpoint_path=None):
             criterion,
             optimizer,
             learning_strategy,
-            WEIGHT_BY_K,
             device,
         )
         val_result = evaluate(
@@ -396,8 +428,8 @@ def train(run_manager, load_checkpoint_path=None):
                 split="val",
                 granularity="epoch",
                 predictor=(
-                    MSE_CE_PRIMARY_PREDICTOR
-                    if learning_strategy == "mse+ce"
+                    PRIMARY_PREDICTOR
+                    if learning_strategy in HYBRID_STRATEGIES
                     else None
                 ),
             )
