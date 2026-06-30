@@ -11,10 +11,7 @@ from src.utils import save_checkpoint, load_checkpoint
 from src.aim_instance import aim_run, track_metric
 
 from config import (
-    small_dataset_path,
-    medium_dataset_path,
-    large_dataset_path,
-    huge_dataset_path,
+    dataset_path,
 
     TRAIN_SIZE,
     MAX_SAMPLES_TRAIN,
@@ -212,8 +209,6 @@ def train(run_manager, load_checkpoint_path=None):
         min_lr=LR_MIN,
     )
 
-    dataset_path = huge_dataset_path
-
     train_dataset, val_dataset, val_energy_matched_dataset = create_train_val_datasets(
         dataset_path,
         train_size=TRAIN_SIZE,
@@ -371,7 +366,7 @@ def train(run_manager, load_checkpoint_path=None):
         val_energy_matched_f1s.append(val_energy_matched_f1)
         val_energy_matched_maes.append(val_energy_matched_mae)
 
-        scheduler.step(val_loss)
+        scheduler.step(mae)
 
         aim_epoch = epoch + 1
         lr_at_min = all(
