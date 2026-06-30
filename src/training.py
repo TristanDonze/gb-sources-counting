@@ -58,15 +58,25 @@ def train_one_epoch(
             y_mse = labels.float().unsqueeze(1) / max_k
             out_mse = torch.sigmoid(logits_mse)
 
-            y_ce = labels - 1
+            # criterion[0] is MSE, criterion[1] is CE, criterion[2] is Ordinal
+            
+            # MSE
+            if WEIGHT_BY_K:
+                per_sample_loss = (out_mse - y_mse).pow(2).squeeze(1)
+                weights = 1.0 + MSE_K_WEIGHT_ALPHA * (labels.float() - 1.0) / (max_k - 1.0)
+                loss_mse = (weights * per_sample_loss).sum() / weights.sum()
+            else:
+                loss_mse = criterion[0](out_mse, y_mse)
 
+            # Cross-Entropy
+            y_ce = labels - 1
+            loss_ce = criterion[1](logits_ce, y_ce)
+
+            # Ordinal
             thresholds = torch.arange(1, max_k, device=device)
             y_ordinal = (labels.unsqueeze(1) > thresholds.unsqueeze(0)).float()
-
-            # criterion[0] is MSE, criterion[1] is CE, criterion[2] is Ordinal
-            loss_mse = criterion[0](out_mse, y_mse)
-            loss_ce = criterion[1](logits_ce, y_ce)
             loss_ordinal = criterion[2](logits_ordinal, y_ordinal)
+
 
             loss = (
                 LAMBDA_MSE * loss_mse
