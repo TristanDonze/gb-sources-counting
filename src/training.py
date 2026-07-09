@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 from config import LAMBDA_MSE, LAMBDA_CE, LAMBDA_ORDINAL, WEIGHT_BY_K, MSE_K_WEIGHT_ALPHA
 
 def train_one_epoch(
@@ -12,7 +13,7 @@ def train_one_epoch(
 ):
     model.train()
     total_loss = 0.0
-    for batch_idx, (summed_waveforms, target) in enumerate(dataloader):
+    for batch_idx, (summed_waveforms, target) in enumerate(tqdm(dataloader)):
         X = torch.as_tensor(summed_waveforms, dtype=torch.float32, device=device)
         logits = model(X)
 

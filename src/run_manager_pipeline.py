@@ -11,7 +11,7 @@ from src.utils import save_checkpoint, load_checkpoint
 from src.aim_instance import aim_run, track_metric
 
 from config import (
-    dataset_path,
+    DATASET_PATH,
 
     TRAIN_SIZE,
     MAX_SAMPLES_TRAIN,
@@ -22,7 +22,7 @@ from config import (
     SEED_TRAIN,
     SEED_VAL,
 
-    learning_strategy,
+    LEARNING_STRATEGY,
     HYBRID_STRATEGIES,
     PRIMARY_PREDICTOR,
     MAX_K,
@@ -173,6 +173,8 @@ def train(run_manager, load_checkpoint_path=None):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"Using device: {device}")
 
+    learning_strategy = LEARNING_STRATEGY
+
     if learning_strategy == "mse":
         criterion = torch.nn.MSELoss()
     elif learning_strategy == "cross_entropy":
@@ -210,7 +212,7 @@ def train(run_manager, load_checkpoint_path=None):
     )
 
     train_dataset, val_dataset, val_energy_matched_dataset = create_train_val_datasets(
-        dataset_path,
+        DATASET_PATH,
         train_size=TRAIN_SIZE,
         max_K=MAX_K,
         max_samples_train=MAX_SAMPLES_TRAIN,
@@ -260,7 +262,7 @@ def train(run_manager, load_checkpoint_path=None):
         ),
     }
     aim_run["dataset"] = {
-        "dataset_path": str(dataset_path),
+        "dataset_path": str(DATASET_PATH),
         "train_size": TRAIN_SIZE,
         "split_seed": SPLIT_SEED,
         "train_waveforms": train_dataset.total_waveforms,

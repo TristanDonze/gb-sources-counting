@@ -9,13 +9,13 @@ large_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_datase
 huge_dataset_path = Path("/sps/l2it/tdonze/gb-dataset-gen/data/synthetic_dataset/dataset_10M_uniform_SNR_10_100/dataset.hdf5")
 
 # Medium Config
-dataset_path = medium_dataset_path
+DATASET_PATH = medium_dataset_path
 TRAIN_SIZE = 0.8
 MAX_SAMPLES_TRAIN = 1_000_000
 MAX_SAMPLES_VAL = 200_000
 
 # Huge Config
-# dataset_path = huge_dataset_path
+# DATASET_PATH = huge_dataset_path
 # TRAIN_SIZE = 0.5
 # MAX_SAMPLES_TRAIN = None
 # MAX_SAMPLES_VAL = 500_000
@@ -27,7 +27,7 @@ SPLIT_SEED = 2027
 
 # Training Hyperparameters 
 
-learning_strategy = "mse+ce+or" # "mse", "cross_entropy", "mse+ce", "mse+ce+or", "ordinal"
+LEARNING_STRATEGY = "mse+ce+or" # "mse", "cross_entropy", "mse+ce", "mse+ce+or", "ordinal"
 HYBRID_STRATEGIES = {"mse+ce", "mse+ce+or"}
 PRIMARY_PREDICTOR = "mse" # "mse", "ce", "ordinal", "ensemble"
 
@@ -39,7 +39,7 @@ LAMBDA_CE = 1.0
 LAMBDA_ORDINAL = 0.03
 
 LAMBDA_PREDICTION_MSE = 0.7
-LAMBDA_PREDICTION_CE = 0.3 if learning_strategy == "mse+ce" else 0.29 if learning_strategy == "mse+ce+or" else 0.0
+LAMBDA_PREDICTION_CE = 0.3 if LEARNING_STRATEGY == "mse+ce" else 0.29 if LEARNING_STRATEGY == "mse+ce+or" else 0.0
 LAMBDA_PREDICTION_ORDINAL = 0.01
 
 MAX_K = 10

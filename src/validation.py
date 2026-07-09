@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 from sklearn.metrics import recall_score, f1_score
 from config import LAMBDA_MSE, LAMBDA_CE, LAMBDA_ORDINAL, LAMBDA_PREDICTION_MSE, LAMBDA_PREDICTION_CE, LAMBDA_PREDICTION_ORDINAL, HYBRID_STRATEGIES
 
@@ -45,7 +46,7 @@ def evaluate(
         total_loss_ordinal = 0.0
 
     with torch.no_grad():
-        for batch_idx, (summed_waveforms, target) in enumerate(dataloader):
+        for batch_idx, (summed_waveforms, target) in enumerate(tqdm(dataloader)):
             X = torch.as_tensor(summed_waveforms, dtype=torch.float32, device=device)
             labels = torch.as_tensor(target, dtype=torch.long, device=device)
 

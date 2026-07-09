@@ -1,0 +1,35 @@
+program: wandb_train.py
+method: bayes
+name: gb-source-counting-sweep
+metric:
+  name: best_val_f1
+  goal: maximize
+parameters:
+  # LEARNING_STRATEGY:
+  #   values: ["mse", "cross_entropy", "mse+ce", "mse+ce+or"]
+  LR:
+    distribution: log_uniform_values
+    min: 2e-4
+    max: 5e-4
+  BATCH_SIZE:
+    values: [128, 256, 512]
+  WEIGHT_DECAY:
+    distribution: log_uniform_values
+    min: 1e-5
+    max: 1e-2
+  # NB_EPOCHS:
+  #   values: [100, 200]
+  # MAX_K:
+  #   values: [5, 10]
+  LAMBDA_MSE:
+    distribution: log_uniform_values
+    min: 0.01
+    max: 1.0
+  LAMBDA_CE:
+    distribution: log_uniform_values
+    min: 0.01
+    max: 1.0
+  LAMBDA_ORDINAL:
+    distribution: log_uniform_values
+    min: 0.01
+    max: 1.0

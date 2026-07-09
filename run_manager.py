@@ -1,3 +1,4 @@
+from src.run_manager_pipeline import train
 import os
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -89,6 +90,4 @@ class RunManager:
 
 if __name__ == "__main__":
     run_manager = RunManager()
-    print(f"Run directory: {run_manager.run_dir}")
-    print(f"Checkpoint directory: {run_manager.checkpoint_dir}")
-    print(f"Evaluation results directory: {run_manager.evaluation_results_dir}")
+    train(run_manager)
