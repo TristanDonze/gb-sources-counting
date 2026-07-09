@@ -12,15 +12,15 @@ parameters:
     min: 2e-4
     max: 5e-4
   BATCH_SIZE:
-    values: [128, 256, 512]
+    values: [8192, 16384]
   WEIGHT_DECAY:
     distribution: log_uniform_values
     min: 1e-5
     max: 1e-2
-  # NB_EPOCHS:
-  #   values: [100, 200]
-  # MAX_K:
-  #   values: [5, 10]
+  NB_EPOCHS:
+    values: [100]
+  MAX_K:
+    values: [10]
   LAMBDA_MSE:
     distribution: log_uniform_values
     min: 0.01
