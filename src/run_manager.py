@@ -1,4 +1,3 @@
-from src.run_manager_pipeline import train
 import os
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -87,7 +86,3 @@ class RunManager:
         ax.set_ylabel(ylabel)
         ax.grid()
         self._save_plot(fig, name)
-
-if __name__ == "__main__":
-    run_manager = RunManager()
-    train(run_manager)

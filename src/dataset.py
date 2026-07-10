@@ -3,10 +3,6 @@ import logging
 import numpy as np
 from torch.utils.data import Dataset
 
-from src.logger import setup_logging
-
-setup_logging()
-
 logger = logging.getLogger("Dataset")
 
 FREQUENCY_SUPPORT_REL_THRESHOLD = 1e-2
