@@ -65,36 +65,88 @@ class CardinalityEstimator(nn.Module):
                  learning_strategy: str = "mse", 
                  max_K: int = 10, 
                  input_channels: int = 4,
-                 dim_model: int = 196):
+                 dim_model: int = 196,
+                 channel_multiplier: int = 1,
+                 conv_1_kernel_size: int = 7,
+                 conv_2_kernel_size: int = 5,
+                 conv_3_kernel_size: int = 5,
+                 conv_4_kernel_size: int = 3,
+                 conv_2_stride: int = 2,
+                 transformer_nhead: int = 4,
+                 transformer_ff_multiplier: float = 2,
+                 transformer_num_layers: int = 2):
         super(CardinalityEstimator, self).__init__()
 
         self.max_K = max_K
         self.dim_model = dim_model
 
+        kernel_sizes = [
+            conv_1_kernel_size,
+            conv_2_kernel_size,
+            conv_3_kernel_size,
+            conv_4_kernel_size,
+        ]
+        if any(kernel_size % 2 == 0 for kernel_size in kernel_sizes):
+            raise ValueError(f"Conv kernel sizes must be odd, got {kernel_sizes}")
+        if self.dim_model % transformer_nhead != 0:
+            raise ValueError(
+                f"dim_model ({self.dim_model}) must be divisible by "
+                f"transformer_nhead ({transformer_nhead})"
+            )
+
+        conv_1_channels = 32 * channel_multiplier
+        conv_2_channels = 64 * channel_multiplier
+        conv_3_channels = 128 * channel_multiplier
+        transformer_dim_feedforward = int(self.dim_model * transformer_ff_multiplier)
+
         self.conv_encoder = nn.Sequential(OrderedDict([
-            ('conv_1', nn.Conv1d(input_channels, 32, kernel_size=7, stride=1, padding=3)),
-            ('norm_1', nn.BatchNorm1d(32)),
+            ('conv_1', nn.Conv1d(
+                input_channels,
+                conv_1_channels,
+                kernel_size=conv_1_kernel_size,
+                stride=1,
+                padding=conv_1_kernel_size // 2,
+            )),
+            ('norm_1', nn.BatchNorm1d(conv_1_channels)),
             ('gelu_1', nn.GELU()),
 
-            ('conv_2', nn.Conv1d(32, 64, kernel_size=5, stride=2, padding=2)),
-            ('norm_2', nn.BatchNorm1d(64)),
+            ('conv_2', nn.Conv1d(
+                conv_1_channels,
+                conv_2_channels,
+                kernel_size=conv_2_kernel_size,
+                stride=conv_2_stride,
+                padding=conv_2_kernel_size // 2,
+            )),
+            ('norm_2', nn.BatchNorm1d(conv_2_channels)),
             ('gelu_2', nn.GELU()),
 
-            ('conv_3', nn.Conv1d(64, 128, kernel_size=5, stride=1, padding=2)),
-            ('norm_3', nn.BatchNorm1d(128)),
+            ('conv_3', nn.Conv1d(
+                conv_2_channels,
+                conv_3_channels,
+                kernel_size=conv_3_kernel_size,
+                stride=1,
+                padding=conv_3_kernel_size // 2,
+            )),
+            ('norm_3', nn.BatchNorm1d(conv_3_channels)),
             ('gelu_3', nn.GELU()),
 
-            ('conv_4', nn.Conv1d(128, dim_model, kernel_size=3, stride=1, padding=1)),
-            ('norm_4', nn.BatchNorm1d(dim_model)),
+            ('conv_4', nn.Conv1d(
+                conv_3_channels,
+                self.dim_model,
+                kernel_size=conv_4_kernel_size,
+                stride=1,
+                padding=conv_4_kernel_size // 2,
+            )),
+            ('norm_4', nn.BatchNorm1d(self.dim_model)),
             ('gelu_4', nn.GELU()),
         ]))
 
-        self.pos_encoder = PosEnc(dim_model=dim_model, max_len=10_000)
+        self.pos_encoder = PosEnc(dim_model=self.dim_model, max_len=10_000)
 
         transformer_layer = nn.TransformerEncoderLayer(
-            d_model=dim_model,
-            nhead=4,
-            dim_feedforward=dim_model * 2,
+            d_model=self.dim_model,
+            nhead=transformer_nhead,
+            dim_feedforward=transformer_dim_feedforward,
             dropout=0.1,
             activation="gelu",
             batch_first=True,
@@ -103,28 +155,28 @@ class CardinalityEstimator(nn.Module):
 
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer=transformer_layer,
-            num_layers=2,
+            num_layers=transformer_num_layers,
             enable_nested_tensor=False,
         )
 
-        self.pooling = PoolingConcat(dim_model=dim_model, attn_dim=dim_model)
+        self.pooling = PoolingConcat(dim_model=self.dim_model, attn_dim=self.dim_model)
 
         self.classifier = nn.Sequential(OrderedDict([
-            ('fc_1', nn.Linear(in_features=dim_model * 3, out_features=dim_model * 2)),
+            ('fc_1', nn.Linear(in_features=self.dim_model * 3, out_features=self.dim_model * 2)),
             ('gelu_1', nn.GELU()),
             ('dropout', nn.Dropout(0.1)),
         ]))
 
         if learning_strategy == "mse":
-            self.classifier.add_module('output', nn.Linear(in_features=2*dim_model, out_features=1))
+            self.classifier.add_module('output', nn.Linear(in_features=2*self.dim_model, out_features=1))
         elif learning_strategy == "cross_entropy":
-            self.classifier.add_module('output', nn.Linear(in_features=2*dim_model, out_features=self.max_K))
+            self.classifier.add_module('output', nn.Linear(in_features=2*self.dim_model, out_features=self.max_K))
         elif learning_strategy == "ordinal":
-            self.classifier.add_module('output', nn.Linear(in_features=2*dim_model, out_features=self.max_K - 1))
+            self.classifier.add_module('output', nn.Linear(in_features=2*self.dim_model, out_features=self.max_K - 1))
         elif learning_strategy == "mse+ce":
-            self.classifier.add_module('output', DualHeadOutput(in_features=2*dim_model, max_K=self.max_K))
+            self.classifier.add_module('output', DualHeadOutput(in_features=2*self.dim_model, max_K=self.max_K))
         elif learning_strategy == "mse+ce+or":
-            self.classifier.add_module('output', TripleHeadOutput(in_features=2*dim_model, max_K=self.max_K))
+            self.classifier.add_module('output', TripleHeadOutput(in_features=2*self.dim_model, max_K=self.max_K))
         else:
             raise ValueError(f"Unknown learning strategy: {learning_strategy}")
 

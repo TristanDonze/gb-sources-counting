@@ -10,7 +10,33 @@ def evaluate(
     criterion,
     learning_strategy,
     device,
+    *,
+    lambda_mse=None,
+    lambda_ce=None,
+    lambda_ordinal=None,
+    lambda_prediction_mse=None,
+    lambda_prediction_ce=None,
+    lambda_prediction_ordinal=None,
 ):
+    lambda_mse = LAMBDA_MSE if lambda_mse is None else lambda_mse
+    lambda_ce = LAMBDA_CE if lambda_ce is None else lambda_ce
+    lambda_ordinal = LAMBDA_ORDINAL if lambda_ordinal is None else lambda_ordinal
+    lambda_prediction_mse = (
+        LAMBDA_PREDICTION_MSE
+        if lambda_prediction_mse is None
+        else lambda_prediction_mse
+    )
+    lambda_prediction_ce = (
+        LAMBDA_PREDICTION_CE
+        if lambda_prediction_ce is None
+        else lambda_prediction_ce
+    )
+    lambda_prediction_ordinal = (
+        LAMBDA_PREDICTION_ORDINAL
+        if lambda_prediction_ordinal is None
+        else lambda_prediction_ordinal
+    )
+
     model.eval()
     total_loss = 0.0
     correct = 0
@@ -82,7 +108,7 @@ def evaluate(
 
                 loss_mse = criterion[0](out_mse, y_mse)
                 loss_ce = criterion[1](logits_ce, y_ce)
-                loss = LAMBDA_MSE * loss_mse + LAMBDA_CE * loss_ce
+                loss = lambda_mse * loss_mse + lambda_ce * loss_ce
 
                 total_loss_mse += loss_mse.item()
                 total_loss_ce += loss_ce.item()
@@ -91,7 +117,7 @@ def evaluate(
                     thresholds = torch.arange(1, max_k, device=device)
                     y_ordinal = (labels.unsqueeze(1) > thresholds.unsqueeze(0)).float()
                     loss_ordinal = criterion[2](logits_ordinal, y_ordinal)
-                    loss += LAMBDA_ORDINAL * loss_ordinal
+                    loss += lambda_ordinal * loss_ordinal
                     total_loss_ordinal += loss_ordinal.item()
                 
                 mse_score = out_mse.squeeze(1) * max_k
@@ -112,11 +138,11 @@ def evaluate(
                 ce_score = (ce_probs * class_values.unsqueeze(0)).sum(dim=1)
 
                 if learning_strategy == "mse+ce":
-                    final_score = LAMBDA_PREDICTION_MSE * mse_score + LAMBDA_PREDICTION_CE * ce_score
+                    final_score = lambda_prediction_mse * mse_score + lambda_prediction_ce * ce_score
                 elif learning_strategy == "mse+ce+or":
-                    final_score = (LAMBDA_PREDICTION_MSE * mse_score + 
-                                   LAMBDA_PREDICTION_CE * ce_score + 
-                                   LAMBDA_PREDICTION_ORDINAL * ordinal_score)
+                    final_score = (lambda_prediction_mse * mse_score + 
+                                   lambda_prediction_ce * ce_score + 
+                                   lambda_prediction_ordinal * ordinal_score)
 
                 pred_combined = torch.round(final_score).long().clamp(1, max_k)
 

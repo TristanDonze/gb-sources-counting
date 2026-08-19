@@ -52,6 +52,16 @@ def _build_run_config(config_overrides=None):
         "LAMBDA_PREDICTION_ORDINAL": default_config.LAMBDA_PREDICTION_ORDINAL,
         "WEIGHT_BY_K": default_config.WEIGHT_BY_K,
         "MSE_K_WEIGHT_ALPHA": default_config.MSE_K_WEIGHT_ALPHA,
+        "DIM_MODEL": default_config.DIM_MODEL,
+        "CHANNEL_MULTIPLIER": default_config.CHANNEL_MULTIPLIER,
+        "CONV_1_KERNEL_SIZE": default_config.CONV_1_KERNEL_SIZE,
+        "CONV_2_KERNEL_SIZE": default_config.CONV_2_KERNEL_SIZE,
+        "CONV_3_KERNEL_SIZE": default_config.CONV_3_KERNEL_SIZE,
+        "CONV_4_KERNEL_SIZE": default_config.CONV_4_KERNEL_SIZE,
+        "CONV_2_STRIDE": default_config.CONV_2_STRIDE,
+        "TRANSFORMER_NHEAD": default_config.TRANSFORMER_NHEAD,
+        "TRANSFORMER_FF_MULTIPLIER": default_config.TRANSFORMER_FF_MULTIPLIER,
+        "TRANSFORMER_NUM_LAYERS": default_config.TRANSFORMER_NUM_LAYERS,
     }
 
     if wandb.run is not None:
@@ -193,7 +203,20 @@ def train(load_checkpoint_path=None, config_overrides=None, run_name=None, proje
     else:
         raise ValueError(f"Unknown learning strategy: {learning_strategy}")
 
-    model = CardinalityEstimator(learning_strategy=learning_strategy, max_K=cfg["MAX_K"]).to(device)
+    model = CardinalityEstimator(
+        learning_strategy=learning_strategy,
+        max_K=cfg["MAX_K"],
+        dim_model=cfg["DIM_MODEL"],
+        channel_multiplier=cfg["CHANNEL_MULTIPLIER"],
+        conv_1_kernel_size=cfg["CONV_1_KERNEL_SIZE"],
+        conv_2_kernel_size=cfg["CONV_2_KERNEL_SIZE"],
+        conv_3_kernel_size=cfg["CONV_3_KERNEL_SIZE"],
+        conv_4_kernel_size=cfg["CONV_4_KERNEL_SIZE"],
+        conv_2_stride=cfg["CONV_2_STRIDE"],
+        transformer_nhead=cfg["TRANSFORMER_NHEAD"],
+        transformer_ff_multiplier=cfg["TRANSFORMER_FF_MULTIPLIER"],
+        transformer_num_layers=cfg["TRANSFORMER_NUM_LAYERS"],
+    ).to(device)
     logger.info(f"Total number of parameters: {sum(p.numel() for p in model.parameters())}")
     logger.debug("Model architecture:")
     for name, module in model.named_modules():
@@ -296,11 +319,29 @@ def train(load_checkpoint_path=None, config_overrides=None, run_name=None, proje
                 optimizer,
                 learning_strategy,
                 device,
+                lambda_mse=cfg["LAMBDA_MSE"],
+                lambda_ce=cfg["LAMBDA_CE"],
+                lambda_ordinal=cfg["LAMBDA_ORDINAL"],
+                weight_by_k=cfg["WEIGHT_BY_K"],
+                mse_k_weight_alpha=cfg["MSE_K_WEIGHT_ALPHA"],
             )
             logger.info(
                 f'Train Summary | Epoch {epoch_num} | Loss={train_loss:.4f}')
 
-            val_result = evaluate(model, cfg["MAX_K"], val_loader, criterion, learning_strategy, device)
+            val_result = evaluate(
+                model,
+                cfg["MAX_K"],
+                val_loader,
+                criterion,
+                learning_strategy,
+                device,
+                lambda_mse=cfg["LAMBDA_MSE"],
+                lambda_ce=cfg["LAMBDA_CE"],
+                lambda_ordinal=cfg["LAMBDA_ORDINAL"],
+                lambda_prediction_mse=cfg["LAMBDA_PREDICTION_MSE"],
+                lambda_prediction_ce=cfg["LAMBDA_PREDICTION_CE"],
+                lambda_prediction_ordinal=cfg["LAMBDA_PREDICTION_ORDINAL"],
+            )
             val_metrics = _unpack_eval_result(val_result, learning_strategy, primary_predictor)
 
             val_energy_matched_result = evaluate(
@@ -310,6 +351,12 @@ def train(load_checkpoint_path=None, config_overrides=None, run_name=None, proje
                 criterion,
                 learning_strategy,
                 device,
+                lambda_mse=cfg["LAMBDA_MSE"],
+                lambda_ce=cfg["LAMBDA_CE"],
+                lambda_ordinal=cfg["LAMBDA_ORDINAL"],
+                lambda_prediction_mse=cfg["LAMBDA_PREDICTION_MSE"],
+                lambda_prediction_ce=cfg["LAMBDA_PREDICTION_CE"],
+                lambda_prediction_ordinal=cfg["LAMBDA_PREDICTION_ORDINAL"],
             )
             val_energy_matched_metrics = _unpack_eval_result(
                 val_energy_matched_result,

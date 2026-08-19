@@ -45,6 +45,17 @@ from config import (
 
     WEIGHT_BY_K,
     MSE_K_WEIGHT_ALPHA,
+
+    DIM_MODEL,
+    CHANNEL_MULTIPLIER,
+    CONV_1_KERNEL_SIZE,
+    CONV_2_KERNEL_SIZE,
+    CONV_3_KERNEL_SIZE,
+    CONV_4_KERNEL_SIZE,
+    CONV_2_STRIDE,
+    TRANSFORMER_NHEAD,
+    TRANSFORMER_FF_MULTIPLIER,
+    TRANSFORMER_NUM_LAYERS,
 )
 
 logger = logging.getLogger(__name__)
@@ -196,7 +207,20 @@ def train(run_manager, load_checkpoint_path=None):
         raise ValueError(f"Unknown learning strategy: {learning_strategy}")
     logger.info(f"Learning strategy: {learning_strategy}")
 
-    model = CardinalityEstimator(learning_strategy=learning_strategy, max_K=MAX_K).to(device)
+    model = CardinalityEstimator(
+        learning_strategy=learning_strategy,
+        max_K=MAX_K,
+        dim_model=DIM_MODEL,
+        channel_multiplier=CHANNEL_MULTIPLIER,
+        conv_1_kernel_size=CONV_1_KERNEL_SIZE,
+        conv_2_kernel_size=CONV_2_KERNEL_SIZE,
+        conv_3_kernel_size=CONV_3_KERNEL_SIZE,
+        conv_4_kernel_size=CONV_4_KERNEL_SIZE,
+        conv_2_stride=CONV_2_STRIDE,
+        transformer_nhead=TRANSFORMER_NHEAD,
+        transformer_ff_multiplier=TRANSFORMER_FF_MULTIPLIER,
+        transformer_num_layers=TRANSFORMER_NUM_LAYERS,
+    ).to(device)
     logger.info(f"Total number of parameters: {sum(p.numel() for p in model.parameters())}")
     logger.info("Model architecture:")
     for name, module in model.named_modules():
@@ -260,6 +284,16 @@ def train(run_manager, load_checkpoint_path=None):
             if learning_strategy in HYBRID_STRATEGIES
             else learning_strategy
         ),
+        "dim_model": DIM_MODEL,
+        "channel_multiplier": CHANNEL_MULTIPLIER,
+        "conv_1_kernel_size": CONV_1_KERNEL_SIZE,
+        "conv_2_kernel_size": CONV_2_KERNEL_SIZE,
+        "conv_3_kernel_size": CONV_3_KERNEL_SIZE,
+        "conv_4_kernel_size": CONV_4_KERNEL_SIZE,
+        "conv_2_stride": CONV_2_STRIDE,
+        "transformer_nhead": TRANSFORMER_NHEAD,
+        "transformer_ff_multiplier": TRANSFORMER_FF_MULTIPLIER,
+        "transformer_num_layers": TRANSFORMER_NUM_LAYERS,
     }
     aim_run["dataset"] = {
         "dataset_path": str(DATASET_PATH),

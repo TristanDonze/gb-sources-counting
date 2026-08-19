@@ -10,7 +10,19 @@ def train_one_epoch(
     optimizer,
     learning_strategy,
     device,
+    *,
+    lambda_mse=None,
+    lambda_ce=None,
+    lambda_ordinal=None,
+    weight_by_k=None,
+    mse_k_weight_alpha=None,
 ):
+    lambda_mse = LAMBDA_MSE if lambda_mse is None else lambda_mse
+    lambda_ce = LAMBDA_CE if lambda_ce is None else lambda_ce
+    lambda_ordinal = LAMBDA_ORDINAL if lambda_ordinal is None else lambda_ordinal
+    weight_by_k = WEIGHT_BY_K if weight_by_k is None else weight_by_k
+    mse_k_weight_alpha = MSE_K_WEIGHT_ALPHA if mse_k_weight_alpha is None else mse_k_weight_alpha
+
     model.train()
     total_loss = 0.0
     for batch_idx, (summed_waveforms, target) in enumerate(tqdm(dataloader)):
@@ -21,9 +33,9 @@ def train_one_epoch(
             labels = torch.as_tensor(target, dtype=torch.float32, device=device).unsqueeze(1)
             y = labels / max_k
             out = torch.sigmoid(logits)
-            if WEIGHT_BY_K:
+            if weight_by_k:
                 per_sample_loss = (out - y).pow(2).squeeze(1)
-                weights = 1.0 + MSE_K_WEIGHT_ALPHA * (labels.squeeze(1) - 1.0) / (max_k - 1.0)
+                weights = 1.0 + mse_k_weight_alpha * (labels.squeeze(1) - 1.0) / (max_k - 1.0)
                 loss = (weights * per_sample_loss).sum() / weights.sum()
             else:
                 loss = criterion(out, y)
@@ -50,7 +62,7 @@ def train_one_epoch(
             loss_mse = criterion[0](out_mse, y_mse)
             loss_ce = criterion[1](logits_ce, y_ce)
 
-            loss = LAMBDA_MSE * loss_mse + LAMBDA_CE * loss_ce
+            loss = lambda_mse * loss_mse + lambda_ce * loss_ce
         elif learning_strategy == "mse+ce+or":
             logits_mse, logits_ce, logits_ordinal = logits
 
@@ -62,9 +74,9 @@ def train_one_epoch(
             # criterion[0] is MSE, criterion[1] is CE, criterion[2] is Ordinal
             
             # MSE
-            if WEIGHT_BY_K:
+            if weight_by_k:
                 per_sample_loss = (out_mse - y_mse).pow(2).squeeze(1)
-                weights = 1.0 + MSE_K_WEIGHT_ALPHA * (labels.float() - 1.0) / (max_k - 1.0)
+                weights = 1.0 + mse_k_weight_alpha * (labels.float() - 1.0) / (max_k - 1.0)
                 loss_mse = (weights * per_sample_loss).sum() / weights.sum()
             else:
                 loss_mse = criterion[0](out_mse, y_mse)
@@ -80,9 +92,9 @@ def train_one_epoch(
 
 
             loss = (
-                LAMBDA_MSE * loss_mse
-                + LAMBDA_CE * loss_ce
-                + LAMBDA_ORDINAL * loss_ordinal
+                lambda_mse * loss_mse
+                + lambda_ce * loss_ce
+                + lambda_ordinal * loss_ordinal
             )
 
         else:
