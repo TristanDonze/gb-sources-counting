@@ -17,7 +17,7 @@ parameters:
     min: 5e-4
     max: 5e-3
   BATCH_SIZE:
-    values: [2048, 4096, 8192]
+    values: [2048, 4096]
   WEIGHT_DECAY:
     distribution: log_uniform_values
     min: 1e-5
