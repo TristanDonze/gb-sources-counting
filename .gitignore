@@ -238,3 +238,6 @@ TODO.MD
 
 # csv
 *.csv
+
+#wandb
+wandb/
